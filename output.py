@@ -1,12 +1,14 @@
 import torch
 import math
 import os
-from define import PE_ACC_BIT, PE_ADD_BIT, QUAN_BIT, REQUAN_BIT
+import math
+from define import PE_ACC_BIT, PE_ADD_BIT, QUAN_BIT, REQUAN_BIT, REQUAN_N_MAX
 
 # target = "input"
 # target = "bias"
 # target = "pe_out"
-target = "pe_add"
+# target = "pe_add"
+target = "requan_shift_n"
 tile_width = 32
 
 def float_to_hex(item, bit_width):
@@ -191,6 +193,18 @@ if target == "pe_add":
                             f.write('\n')
                             if block_h_start + h_idx == height - 1:
                                 break
+
+if target == "requan_shift_n":
+    store_path = "output_txt/requan_shift_n/"
+    if  not os.path.exists(store_path):#如果路径不存在
+        os.makedirs(store_path)
+    with open("output_txt/requan_shift_n/requan_shift_n.txt","w") as f:
+        for layer_id in range(5):
+            tensor_data = torch.load("output_pt/requan_factor/n_{}_{}.pt".format(layer_id, layer_id + 1))
+            f.write(float_to_hex(tensor_data, math.log2(REQUAN_N_MAX)))
+            f.write('\n')
+        tensor_data = torch.load("output_pt/requan_factor/n_res.pt")
+        f.write(float_to_hex(tensor_data, math.log2(REQUAN_N_MAX)))
 
 
 
