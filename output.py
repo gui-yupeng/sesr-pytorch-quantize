@@ -1,9 +1,12 @@
 import torch
 import math
 import os
+from define import PE_ACC_BIT, PE_ADD_BIT, QUAN_BIT, REQUAN_BIT
 
-target = "input"
-func_id = 1
+# target = "input"
+# target = "bias"
+# target = "pe_out"
+target = "pe_add"
 tile_width = 32
 
 def float_to_hex(item, bit_width):
@@ -23,51 +26,171 @@ def float_to_hex(item, bit_width):
         str_hex = '{:04x}'.format(int_res)
     elif bit_hex == 5 :
         str_hex = '{:05x}'.format(int_res)
+    elif bit_hex == 6 :
+        str_hex = '{:06x}'.format(int_res)
+    elif bit_hex == 7 :
+        str_hex = '{:07x}'.format(int_res)
+    elif bit_hex == 8 :
+        str_hex = '{:08x}'.format(int_res)
     else:
         str_hex = '{:02x}'.format(int_res)
     
     return str_hex
 
 if target == "input":
-    tensor_data = torch.load("output_pt/input/input.{}.pt".format(func_id))
-    batch, channel, height, width = tensor_data.shape
-    expanded_height = height
-    expanded_width = width
-    if height % tile_width != 0:
-        expanded_height = ((height // tile_width) + 1) * tile_width
-    if width % tile_width != 0:
-        expanded_width = ((width // tile_width) + 1) * tile_width
+    for layer_id in range(5):
+        tensor_data = torch.load("output_pt/input/input.{}.pt".format(layer_id))
+        batch, channel, height, width = tensor_data.shape
+        expanded_height = height
+        expanded_width = width
+        if height % tile_width != 0:
+            expanded_height = ((height // tile_width) + 1) * tile_width
+        if width % tile_width != 0:
+            expanded_width = ((width // tile_width) + 1) * tile_width
 
-    tensor_expand = torch.zeros(batch, channel, height, expanded_width)
-    tensor_expand[:, :, :, 0:width] = tensor_data[:, :, :, :]
+        tensor_expand = torch.zeros(batch, channel, height, expanded_width)
+        tensor_expand[:, :, :, 0:width] = tensor_data[:, :, :, :]
 
-    width_block_num = int(expanded_width / tile_width)
-    height_block_num = int(expanded_height / tile_width)
+        width_block_num = int(expanded_width / tile_width)
+        height_block_num = int(expanded_height / tile_width)
 
-    store_path = "output_txt/input/"
+        store_path = "output_txt/input/"
+        if  not os.path.exists(store_path):#如果路径不存在
+            os.makedirs(store_path)
+        with open("output_txt/input/input.{}.txt".format(layer_id),"w") as f:
+            for height_block_idx in range(height_block_num):
+                for width_block_idx in range(width_block_num):
+                    block_h_start = height_block_idx * tile_width
+                    block_w_start = width_block_idx * tile_width
+                    is_last_height_block = (height_block_idx == (height_block_num-1))
+                    if is_last_height_block:
+                         wr_line_num = height - block_h_start
+                    else:
+                        wr_line_num = 32
+                    f.write('{}\n'.format("{:02x}".format(int(wr_line_num))))
+                    f.write('{}\n'.format("{:02x}".format(int(channel))))
+
+                    for c_idx in range(channel):
+                        f.write('{}\n'.format("{:02x}".format(int(c_idx))))
+                        for h_idx in range(32):
+                            for w_idx in range(32):
+                                real_hi = block_h_start + h_idx
+                                real_wi = block_w_start + w_idx
+                                data_item = tensor_expand[0, c_idx, real_hi, real_wi].item()
+                                f.write(float_to_hex(data_item, QUAN_BIT))
+                            f.write('\n')
+                            if block_h_start + h_idx == height - 1:
+                                break
+
+if target == "bias":
+    store_path = "output_txt/bias/"
     if  not os.path.exists(store_path):#如果路径不存在
         os.makedirs(store_path)
-    with open("output_txt/input/input.{}.txt".format(func_id),"w") as f:
-        for height_block_idx in range(height_block_num):
-            for width_block_idx in range(width_block_num):
-                block_h_start = height_block_idx * tile_width
-                block_w_start = width_block_idx * tile_width
-                is_last_height_block = (height_block_idx == (height_block_num-1))
-                if is_last_height_block:
-                     wr_line_num = height - block_h_start
-                else:
-                    wr_line_num = 32
-                f.write('{}\n'.format("{:02x}".format(int(wr_line_num))))
-                f.write('{}\n'.format("{:02x}".format(int(channel))))
+    with open("output_txt/bias/param_buf.txt", "w") as f:
+        f.write(float_to_hex(5,8))
+        f.write('\n')
+        requan_res = torch.load("output_pt/requan_factor/requan_res.pt")
+        requan_res = float_to_hex(requan_res, REQUAN_BIT)
+        for layer_id in range(5):
+            bias_quan = torch.load("output_pt/bias/conv.bias.quan{}.pt".format(layer_id))
+            requan_factor = torch.load("output_pt/requan_factor/requan_{}_{}.pt".format(layer_id, layer_id + 1))
+            _, chnl, _, _ = bias_quan.shape
+            f.write(float_to_hex(chnl,8))
+            f.write('\n')
+            for ci in range(chnl):
+                f.write(float_to_hex(bias_quan[0,ci,0,0],REQUAN_BIT))
+                f.write(float_to_hex(requan_factor,REQUAN_BIT))
+                f.write(requan_res)
+                f.write('\n')
+                
+if target == "pe_out":
+    for layer_id in range(5):
+        for pe_id in range(4):
+            tensor_data = torch.load("output_pt/pe_out/pe_output{}_{}.pt".format(layer_id, pe_id))
+            #保存的时候是三维
+            tensor_data = tensor_data[None,:,:,:]
+            batch, channel, height, width = tensor_data.shape
+            expanded_height = height
+            expanded_width = width
+            if height % tile_width != 0:
+                expanded_height = ((height // tile_width) + 1) * tile_width
+            if width % tile_width != 0:
+                expanded_width = ((width // tile_width) + 1) * tile_width
 
-                for c_idx in range(channel):
-                    f.write('{}\n'.format("{:02x}".format(int(c_idx))))
-                    for h_idx in range(32):
-                        for w_idx in range(32):
-                            real_hi = block_h_start + h_idx
-                            real_wi = block_w_start + w_idx
-                            data_item = tensor_expand[0, c_idx, real_hi, real_wi].item()
-                            f.write(float_to_hex(data_item, 8))
-                        f.write('\n')
-                        if block_h_start + h_idx == height - 1:
-                            break
+            tensor_expand = torch.zeros(batch, channel, height, expanded_width)
+            tensor_expand[:, :, :, 0:width] = tensor_data[:, :, :, :]
+
+            width_block_num = int(expanded_width / tile_width)
+            height_block_num = int(expanded_height / tile_width)
+
+            store_path = "output_txt/pe_out/"
+            if  not os.path.exists(store_path):#如果路径不存在
+                os.makedirs(store_path)
+            with open("output_txt/pe_out/pe_output{}_{}.txt".format(layer_id, pe_id),"w") as f:
+                for height_block_idx in range(height_block_num):
+                    for width_block_idx in range(width_block_num):
+                        block_h_start = height_block_idx * tile_width
+                        block_w_start = width_block_idx * tile_width
+                        is_last_height_block = (height_block_idx == (height_block_num-1))
+                        if is_last_height_block:
+                             wr_line_num = height - block_h_start
+                        else:
+                            wr_line_num = 32
+                        f.write('{}\n'.format("{:02x}".format(int(wr_line_num))))
+                        f.write('{}\n'.format("{:02x}".format(int(channel))))
+
+                        for c_idx in range(channel):
+                            f.write('{}\n'.format("{:02x}".format(int(c_idx))))
+                            for h_idx in range(32):
+                                for w_idx in range(32):
+                                    real_hi = block_h_start + h_idx
+                                    real_wi = block_w_start + w_idx
+                                    data_item = tensor_expand[0, c_idx, real_hi, real_wi].item()
+                                    f.write(float_to_hex(data_item, PE_ACC_BIT))
+                                f.write('\n')
+                                if block_h_start + h_idx == height - 1:
+                                    break
+
+if target == "pe_add":
+    for layer_id in range(5):
+        tensor_data = torch.load("output_pt/pe_add/pe_add_output{}.pt".format(layer_id))
+        batch, channel, height, width = tensor_data.shape
+        expanded_height = height
+        expanded_width = width
+        if height % tile_width != 0:
+            expanded_height = ((height // tile_width) + 1) * tile_width
+        if width % tile_width != 0:
+            expanded_width = ((width // tile_width) + 1) * tile_width
+        tensor_expand = torch.zeros(batch, channel, height, expanded_width)
+        tensor_expand[:, :, :, 0:width] = tensor_data[:, :, :, :]
+        width_block_num = int(expanded_width / tile_width)
+        height_block_num = int(expanded_height / tile_width)
+        store_path = "output_txt/pe_add/"
+        if  not os.path.exists(store_path):#如果路径不存在
+            os.makedirs(store_path)
+        with open("output_txt/pe_add/pe_add_output{}.txt".format(layer_id),"w") as f:
+            for height_block_idx in range(height_block_num):
+                for width_block_idx in range(width_block_num):
+                    block_h_start = height_block_idx * tile_width
+                    block_w_start = width_block_idx * tile_width
+                    is_last_height_block = (height_block_idx == (height_block_num-1))
+                    if is_last_height_block:
+                         wr_line_num = height - block_h_start
+                    else:
+                        wr_line_num = 32
+                    f.write('{}\n'.format("{:02x}".format(int(wr_line_num))))
+                    f.write('{}\n'.format("{:02x}".format(int(channel))))
+                    for c_idx in range(channel):
+                        f.write('{}\n'.format("{:02x}".format(int(c_idx))))
+                        for h_idx in range(32):
+                            for w_idx in range(32):
+                                real_hi = block_h_start + h_idx
+                                real_wi = block_w_start + w_idx
+                                data_item = tensor_expand[0, c_idx, real_hi, real_wi].item()
+                                f.write(float_to_hex(data_item, PE_ADD_BIT))           
+                            f.write('\n')
+                            if block_h_start + h_idx == height - 1:
+                                break
+
+
+

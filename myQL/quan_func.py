@@ -221,11 +221,25 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
         elif func_id == 4:
             #残差
             residual = torch.load("output_pt/residual/shortcut_tensor.pt")
+            tensor_add = torch.round(residual) + torch.round(tensor_input)
+
             quan_max = 2 ** (width - 1) - 1
             quan_min = 0 - 2 ** (width - 1)
             scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id))
+            scale_1 = torch.load("output_pt/input/input.{}.scale.pt".format(1))
             zero = torch.load("output_pt/input/input.{}.zero.pt".format(func_id))
-            quantized_tensor = torch.clamp(torch.round(tensor_input + residual + zero), min=quan_min, max=quan_max)
+            res_add_requan = scale_1 / scale
+            res_add_requan_16bit, res_add_requan_n = quan_layer_between_const(res_add_requan, REQUAN_BIT, REQUAN_N_MAX)
+
+            if REQUAN_FACTOR_W_FLG :
+                store_path = "output_pt/requan_factor/"
+                if  not os.path.exists(store_path):#如果路径不存在
+                    os.makedirs(store_path)
+                torch.save(res_add_requan_16bit,"output_pt/requan_factor/requan_res.pt")
+                torch.save(res_add_requan_n,"output_pt/requan_factor/n_res.pt")
+
+            tensor_add = tensor_add * res_add_requan_16bit * (2**(0-res_add_requan_n))
+            quantized_tensor = torch.clamp(torch.round(tensor_add + zero), min=quan_min, max=quan_max)
             #quantized_tensor = torch.clamp(tensor_input + residual + zero, min=quan_min, max=quan_max)
         else:
             #重量化后，加上zero
@@ -378,6 +392,7 @@ def PEs_and_bias_adder(input_tensor, bias, pe_add_width, pe_acc_width, bias_widt
         conv_append_broadcast = conv_append[None, :, None, None]
         add_const = quantized_bias_broadcast - conv_append_broadcast
         quan_add_const = torch.clamp(add_const, min=-2**(bias_width-1),max=2**(bias_width-1)-1)
+        add_const = quantized_bias_broadcast - conv_append_broadcast
         if BIAS_QUAN_W_FLG :
             torch.save(quan_add_const,"output_pt/bias/conv.bias.quan{}.pt".format(func_id))
         #quan_add_const_hex_str = float_to_hex(quan_add_const, pe_acc_width)
@@ -429,22 +444,33 @@ def requan_conv2d_output(input_tensor, func_id, exe_mode):
                 torch.save(requan_const_16bit,"output_pt/requan_factor/requan_0_1.pt")
                 torch.save(requan_const_n,"output_pt/requan_factor/n_0_1.pt")
 
-            #残差输送给id为4的层
-            next_input_scale_res = torch.load("output_pt/input/input.4.scale.pt")
-            requan_const_res = this_input_scale / next_input_scale_res * this_weight_scale 
-            requan_const_16bit_res, requan_const_n_res = quan_layer_between_const(requan_const_res, REQUAN_BIT, REQUAN_N_MAX)
-            shortcut_tensor = input_tensor * requan_const_16bit_res * 2**(0-requan_const_n_res)
-            # shortcut_tensor = torch.round(input_tensor / next_input_scale_res)
-            shortcut_tensor = F.relu(shortcut_tensor)
+            #残差输送给id为4的层，但是仍然用第二层scale的量化
+            # next_input_scale_res = torch.load("output_pt/input/input.4.scale.pt")
+            # requan_const_res = this_input_scale / next_input_scale_res * this_weight_scale 
+            # requan_const_16bit_res, requan_const_n_res = quan_layer_between_const(requan_const_res, REQUAN_BIT, REQUAN_N_MAX)
+            # shortcut_tensor = input_tensor * requan_const_16bit_res * 2**(0-requan_const_n_res)
+            # # shortcut_tensor = torch.round(input_tensor / next_input_scale_res)
+            # shortcut_tensor = F.relu(shortcut_tensor)
             store_path = "output_pt/residual/"
             if  not os.path.exists(store_path):#如果路径不存在
                 os.makedirs(store_path)
-            torch.save(shortcut_tensor,"output_pt/residual/shortcut_tensor.pt")
+            torch.save(output_tensor,"output_pt/residual/shortcut_tensor.pt")
+
+            # if REQUAN_FACTOR_W_FLG :
+            #     torch.save(requan_const_16bit_res,"output_pt/requan_factor/requan_res_0_4.pt")
+            #     torch.save(requan_const_n_res,"output_pt/requan_factor/n_res_0_4.pt")
+        elif func_id == 3:
+            #最后一层，直接反量化为浮点
+            next_input_scale = torch.load("output_pt/input/input.{}.scale.pt".format(1))
+            requan_const = this_input_scale / next_input_scale * this_weight_scale 
+            requan_const_16bit, requan_const_n = quan_layer_between_const(requan_const, REQUAN_BIT, REQUAN_N_MAX)
+            # output_tensor = input_tensor * requan_const
+            output_tensor = input_tensor * requan_const_16bit * 2**(0-requan_const_n)
+            # output_tensor = input_tensor
 
             if REQUAN_FACTOR_W_FLG :
-                torch.save(requan_const_16bit_res,"output_pt/requan_factor/requan_res_0_4.pt")
-                torch.save(requan_const_n_res,"output_pt/requan_factor/n_res_0_4.pt")
-
+                torch.save(requan_const_16bit,"output_pt/requan_factor/requan_3_4.pt")
+                torch.save(requan_const_n,"output_pt/requan_factor/n_3_4.pt")
 
         elif func_id == 4:
             #最后一层，直接反量化为浮点
@@ -455,8 +481,8 @@ def requan_conv2d_output(input_tensor, func_id, exe_mode):
             # output_tensor = input_tensor
 
             if REQUAN_FACTOR_W_FLG :
-                torch.save(requan_const_16bit,"output_pt/requan_factor/requan_4_o.pt")
-                torch.save(requan_const_n,"output_pt/requan_factor/n_4_o.pt")
+                torch.save(requan_const_16bit,"output_pt/requan_factor/requan_4_5.pt")
+                torch.save(requan_const_n,"output_pt/requan_factor/n_4_5.pt")
         else:
             #其他层，将输出反量化
             next_input_scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id + 1))
