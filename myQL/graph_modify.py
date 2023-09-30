@@ -99,7 +99,7 @@ def insert_bias_bypass(model_input, insert_mapping: NodeInsertMapping) -> torch.
                     bias_list = bias_value.tolist()
                     
                     # Set bias of current node in state dict to 0
-                    model_state_dict[current_node.target + '.bias'] = torch.zeros_like(bias_value)
+                    model_state_dict[current_node.target + '.bias'] = torch.zeros_like(bias_value, dtype=torch.int32)
                     # Load the new state dict
                     model_input.load_state_dict(model_state_dict)
                     parameters = insert_config.function_package.parameter_dict

@@ -7,8 +7,8 @@ from define import PE_ACC_BIT, PE_ADD_BIT, QUAN_BIT, REQUAN_BIT, REQUAN_N_MAX
 # target = "input"
 # target = "bias"
 # target = "pe_out"
-# target = "pe_add"
-target = "requan_shift_n"
+target = "pe_add"
+# target = "requan_shift_n"
 tile_width = 32
 
 def float_to_hex(item, bit_width):

@@ -3,9 +3,9 @@ PE          =      4
 
 QUAN_BIT    =      8
 
-BIAS_BIT            =      16           #对量化后的bias(int)和bias(int)-Xzero*sum(Wint)同时做clamp
-PE_ACC_BIT          =      18
-PE_ADD_BIT          =      20
+BIAS_BIT            =      32           #对量化后的bias(int)和bias(int)-Xzero*sum(Wint)同时做clamp
+PE_ACC_BIT          =      32
+PE_ADD_BIT          =      32
 
 REQUAN_BIT          =      16
 REQUAN_N_MAX        =      32
@@ -13,7 +13,7 @@ REQUAN_N_MAX        =      32
 
 
 
-w_flg_c = True
+w_flg_c = False
 
 WEIGHT_W_FLG            =   w_flg_c and True                #输出weight的txt
 INPUT_W_FLG             =   w_flg_c and True                #输出input的Tensor

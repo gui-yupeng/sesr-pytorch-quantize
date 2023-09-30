@@ -67,14 +67,16 @@ def quantize_symmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_m
     quan_min = 0 - 2 ** (width - 1)
 
     quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
-    tensor_quan = torch.clamp(torch.round(tensor_input / quan_scale), min=quan_min, max=quan_max)     
+    tensor_quan = torch.clamp(torch.round(tensor_input / quan_scale), min=quan_min, max=quan_max)
 
     #store the pt file
     store_path = "output_pt/weight/"
     if  not os.path.exists(store_path):#如果路径不存在
         os.makedirs(store_path)
     torch.save(quan_scale,"output_pt/weight/conv.weight.{}.scale.pt".format(func_id))
-    torch.save(tensor_quan,"output_pt/weight/conv.weight.{}.pt".format(func_id))
+    torch.save(tensor_quan, "output_pt/weight/conv.weight.{}.pt".format(func_id))
+    # torch.save(1,"output_pt/weight/conv.weight.{}.scale.pt".format(func_id))
+    # torch.save(tensor_quan* quan_scale,"output_pt/weight/conv.weight.{}.pt".format(func_id))
 
     if WEIGHT_W_FLG is True :
         store_path = "output_txt/weight/"
@@ -106,10 +108,13 @@ def quantize_symmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_m
                                     data_item = tensor_store[block_oc+oc_i, block_ic+ic_i, kh_i, kw_i].item()
                                     f.write(float_to_hex(data_item, QUAN_BIT))
                             f.write('\n')
+    
     if exe_mode == 0 :
         quantized_tensor = tensor_quan * quan_scale
     elif exe_mode == 1 :
-        quantized_tensor = tensor_quan
+        # quantized_tensor = tensor_quan
+       
+        quantized_tensor = tensor_quan * quan_scale
 
     if WEIGHT_W_HIST_PNG:
         store_path = "output_png/weight_quan/"
@@ -185,13 +190,18 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
             last_min_val = torch.load("output_pt/input/input.{}.min_val.pt".format(func_id))
             if last_max_val < max_val :
                 torch.save(max_val,"output_pt/input/input.{}.max_val.pt".format(func_id))
+                last_max_val = max_val
             if last_min_val > min_val :
                 torch.save(min_val,"output_pt/input/input.{}.min_val.pt".format(func_id))
+                last_min_val = min_val
 
         assert max_val != min_val , "Input tensor is all equal"
 
         inp_max = max_val
         inp_min = min_val
+        # 融入一些校准误差
+        # inp_max = last_max_val
+        # inp_min = last_min_val
         quan_max = 2 ** (width - 1) - 1
         quan_min = 0 - 2 ** (width - 1)
 
@@ -312,12 +322,6 @@ def reshape_ouput_for_hardware_pe(input_tensor: Tensor, width_accum, input_scale
         batch_end = (i + 1) * pe_num
         output_tensor[i, :, :, :] = torch.sum(input_tensor_overflowed[batch_start: batch_end, :, :, :], dim=0)
 
-    #quantized_output_tensor = quantize_tensor_with_original_scale(output_tensor, width_accum)
-    if(OUTPUT_PE_ADD_W_FLG):
-        store_path = "output_pt/pe_add/"
-        if  not os.path.exists(store_path):#如果路径不存在
-            os.makedirs(store_path)
-        torch.save(output_tensor,"output_pt/pe_add/pe_add_output{}.pt".format(func_id))
     
     return output_tensor
 
@@ -356,9 +360,7 @@ def PEs_and_bias_adder(input_tensor, bias, pe_add_width, pe_acc_width, bias_widt
 
     # Reshape the batched tensor to original shape
     tensor_buffer = reshape_ouput_for_hardware_pe(input_tensor, pe_acc_width, input_scale, input_zero, weight_scale, exe_mode, func_id, pe_num)
-    # Must be 4D tensor
-    input_dimension = len(tensor_buffer.shape)
-    assert input_dimension == 4, 'Expect input tensor dimension: 4, but get %d' % input_dimension
+    #tensor_buffer = input_tensor
 
     overflow_max = 2**(pe_add_width-1) - 1
     overflow_min = 0 - 2**(pe_add_width - 1)
@@ -371,12 +373,17 @@ def PEs_and_bias_adder(input_tensor, bias, pe_add_width, pe_acc_width, bias_widt
     if exe_mode == 1:
         input_tensor_overflowed = torch.clamp(tensor_buffer, min=overflow_min, max=overflow_max)
 
+        if(OUTPUT_PE_ADD_W_FLG):
+            store_path = "output_pt/pe_add/"
+            if  not os.path.exists(store_path):#如果路径不存在
+                os.makedirs(store_path)
+            torch.save(input_tensor_overflowed,"output_pt/pe_add/pe_add_output{}.pt".format(func_id))
+
     # Convert bias list to tensor
     bias_tensor = Tensor(bias).to(input_tensor.device)
     # Broadcast 1D tensor to 4D
     bias_tensor_broadcast = bias_tensor[None, :, None, None]
 
-    #quantized_tensor_buffer = quantize_tensor_with_original_scale(tensor_buffer, width)
     bias_scale = input_scale * weight_scale
     quantized_bias_broadcast = quantize_bias_with_scale(bias_tensor_broadcast, bias_scale, bias_width, exe_mode, func_id)
 
@@ -392,7 +399,7 @@ def PEs_and_bias_adder(input_tensor, bias, pe_add_width, pe_acc_width, bias_widt
         conv_append_broadcast = conv_append[None, :, None, None]
         add_const = quantized_bias_broadcast - conv_append_broadcast
         quan_add_const = torch.clamp(add_const, min=-2**(bias_width-1),max=2**(bias_width-1)-1)
-        add_const = quantized_bias_broadcast - conv_append_broadcast
+
         if BIAS_QUAN_W_FLG :
             torch.save(quan_add_const,"output_pt/bias/conv.bias.quan{}.pt".format(func_id))
         #quan_add_const_hex_str = float_to_hex(quan_add_const, pe_acc_width)

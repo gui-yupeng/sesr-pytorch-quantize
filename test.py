@@ -61,7 +61,7 @@ model.load_state_dict(state_temp_dict)
 # infer
 model.collapse()
 
-print(model)
+# print(model)
 """------------------------------------quantize start---------------------------------------"""
 qmode = 0
 
@@ -82,13 +82,6 @@ reshape_function_package = FunctionPackage(reshape_input_for_hardware_pe, {'pe_n
 conv2d_config = NodeInsertMappingElement(torch.nn.Conv2d, reshape_function_package)
 input_reshape_mapping.add_config(conv2d_config)
 model = insert_before(model_input=model, insert_mapping=input_reshape_mapping)
-
-# 4: requantize output of conv2d
-requan_mapping = NodeInsertMapping()
-requan_FP = FunctionPackage(requan_conv2d_output, {'exe_mode':qmode})
-requan_config = NodeInsertMappingElement(torch.nn.Conv2d, requan_FP)
-requan_mapping.add_config(requan_config)
-model = insert_after(model_input=model, insert_mapping=requan_mapping)
 
 # 3: add batches of 4 PEs 
 bypass_mapping = NodeInsertMapping()
@@ -122,31 +115,32 @@ totalpsnr = 0
 totalssim = 0
 totalnum = 0
 for i, data in enumerate(loader_train):
-	inps,gts,_ = data[:]
-	inps = inps.cuda()
-	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
-	with torch.no_grad():
-		gfake = model(inps)
+	if(i == 1):
+		inps,gts,_ = data[:]
+		inps = inps.cuda()
+		gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
+		with torch.no_grad():
+			gfake = model(inps)
 
-	# compute psnr and ssim
-	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
-	gfake = np.clip(gfake, 0, 1)
-	if mflag == 1: #nr
-		gfake = three2one(gfake)
-		gts = three2one(gts)
-	if mflag == 5:
-		gfake = gfake[:,:,0]
-		gts = gts[:,:,0]
+		# compute psnr and ssim
+		gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
+		gfake = np.clip(gfake, 0, 1)
+		if mflag == 1: #nr
+			gfake = three2one(gfake)
+			gts = three2one(gts)
+		if mflag == 5:
+			gfake = gfake[:,:,0]
+			gts = gts[:,:,0]
 
-	isppsnr = compare_psnr(gts, gfake, data_range=1.0)
-	if  mflag == 1 or  mflag == 5:
-		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
-	else:
-		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=True)
-	print(isppsnr)
-	totalpsnr+= isppsnr
-	totalssim += ispssim
-	totalnum += 1
+		isppsnr = compare_psnr(gts, gfake, data_range=1.0)
+		if  mflag == 1 or  mflag == 5:
+			ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
+		else:
+			ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=True)
+		print(isppsnr)
+		totalpsnr+= isppsnr
+		totalssim += ispssim
+		totalnum += 1
 tasks = ['nr','dm','nrdm_small','nrdm_big','sr']
 print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 
@@ -159,6 +153,8 @@ for id in range(5):
 	quan_min = 0 - 2 ** (QUAN_BIT - 1)
 	quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
 	quan_zero = quan_min - round(inp_min/quan_scale)
+	print('scale:',quan_scale)
+	print('zero:',quan_zero)
 	# quan_scale = 1
 	# quan_zero = 0
 	torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
