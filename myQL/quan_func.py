@@ -224,7 +224,6 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
             quan_max = 2 ** (width - 1) - 1
             quan_min = 0 - 2 ** (width - 1)
             quantized_tensor = torch.clamp(torch.round(tensor_input / scale + zero), min=quan_min, max=quan_max)
-            #quantized_tensor = torch.clamp(tensor_input / scale + zero, min=quan_min, max=quan_max)
 
         elif func_id == 4:
             #残差
@@ -248,7 +247,7 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
 
             tensor_add = tensor_add * res_add_requan_16bit * (2**(0-res_add_requan_n))
             quantized_tensor = torch.clamp(torch.round(tensor_add + zero), min=quan_min, max=quan_max)
-            #quantized_tensor = torch.clamp(tensor_input + residual + zero, min=quan_min, max=quan_max)
+
         else:
             #重量化后，加上zero
             quan_max = 2 ** (width - 1) - 1
@@ -256,12 +255,17 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
             scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id))
             zero = torch.load("output_pt/input/input.{}.zero.pt".format(func_id))
             quantized_tensor = torch.clamp(torch.round(tensor_input + zero), min=quan_min, max=quan_max)
-            #quantized_tensor = torch.clamp(tensor_input + zero, min=quan_min, max=quan_max)
+
 
     if INPUT_W_FLG:
         torch.save(quantized_tensor,"output_pt/input/input.{}.pt".format(func_id))
 
-    return quantized_tensor
+    if exe_mode == 0:
+        return quantized_tensor
+    elif exe_mode == 1:
+        return quantized_tensor - zero
+        # return quantized_tensor + 128
+    
 
 
 def reshape_input_for_hardware_pe(input_tensor, pe_num: int = 4):
@@ -286,7 +290,7 @@ def reshape_input_for_hardware_pe(input_tensor, pe_num: int = 4):
     
     return output_tensor
 
-def reshape_ouput_for_hardware_pe(input_tensor: Tensor, width_accum, input_scale, input_zero, weight_scale, exe_mode, func_id, pe_num: int = 4):
+def reshape_ouput_for_hardware_pe(input_tensor: Tensor, conv_weight, width_accum, input_scale, input_zero, weight_scale, exe_mode, func_id, pe_num: int = 4):
     input_dimension = len(input_tensor.shape)
     assert input_dimension == 4, 'Expect input tensor dimension: 4, but get %d' % input_dimension
 
@@ -302,7 +306,26 @@ def reshape_ouput_for_hardware_pe(input_tensor: Tensor, width_accum, input_scale
         input_tensor_overflowed = torch.clamp(input_tensor, min=float_min, max=float_max)
 
     if exe_mode == 1:
-        input_tensor_overflowed = torch.clamp(input_tensor, min=overflow_min, max=overflow_max)
+        # 因为送入卷积层的输入是input - zero，在这里进行还原，计算输入为input的结果
+        # 按输入的相同形式分batch
+        conv_weight = reshape_input_for_hardware_pe(conv_weight, pe_num = 4)
+        conv_weight = torch.sum(conv_weight, dim=(1,2,3))
+        length = conv_weight.shape[0]
+        conv_weight_pe0 = conv_weight[0:length:4]
+        conv_weight_pe1 = conv_weight[1:length:4]
+        conv_weight_pe2 = conv_weight[2:length:4]
+        conv_weight_pe3 = conv_weight[3:length:4]
+        conv_weight_pe0 = conv_weight_pe0[: , None, None]
+        conv_weight_pe1 = conv_weight_pe1[: , None, None]
+        conv_weight_pe2 = conv_weight_pe2[: , None, None]
+        conv_weight_pe3 = conv_weight_pe3[: , None, None]
+        # 目前仅支持输入batch = 1 
+        input_add_zero = torch.zeros_like(input_tensor)
+        input_add_zero[0,:,:,:] = input_tensor[0,:,:,:] + conv_weight_pe0 * input_zero
+        input_add_zero[1,:,:,:] = input_tensor[1,:,:,:] + conv_weight_pe1 * input_zero
+        input_add_zero[2,:,:,:] = input_tensor[2,:,:,:] + conv_weight_pe2 * input_zero
+        input_add_zero[3,:,:,:] = input_tensor[3,:,:,:] + conv_weight_pe3 * input_zero
+        input_tensor_overflowed = torch.clamp(input_add_zero, min=overflow_min, max=overflow_max)
 
     if(OUTPUT_PE_W_FLG):
         assert batch == 4 , "only support input batch = 1"
@@ -354,10 +377,10 @@ def PEs_and_bias_adder(input_tensor, bias, pe_add_width, pe_acc_width, bias_widt
     input_scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id))
     input_zero = torch.load("output_pt/input/input.{}.zero.pt".format(func_id))
     weight_scale = torch.load("output_pt/weight/conv.weight.{}.scale.pt".format(func_id))
-
+    conv_weight = torch.load("output_pt/weight/conv.weight.{}.pt".format(func_id))
 
     # Reshape the batched tensor to original shape
-    tensor_buffer = reshape_ouput_for_hardware_pe(input_tensor, pe_acc_width, input_scale, input_zero, weight_scale, exe_mode, func_id, pe_num)
+    tensor_buffer = reshape_ouput_for_hardware_pe(input_tensor, conv_weight, pe_acc_width, input_scale, input_zero, weight_scale, exe_mode, func_id, pe_num)
     #tensor_buffer = input_tensor
 
     overflow_max = 2**(pe_add_width-1) - 1
@@ -389,8 +412,6 @@ def PEs_and_bias_adder(input_tensor, bias, pe_add_width, pe_acc_width, bias_widt
         # Add the bias
         output_tensor = input_tensor_overflowed + quantized_bias_broadcast
     elif exe_mode == 1:
-        #获得
-        conv_weight = torch.load("output_pt/weight/conv.weight.{}.pt".format(func_id))
         conv_weight = torch.sum(conv_weight,dim=(1,2,3))
         conv_append = conv_weight * input_zero
         #conv_append = conv_weight * input_zero * input_scale

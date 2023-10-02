@@ -119,32 +119,29 @@ totalpsnr = 0
 totalssim = 0
 totalnum = 0
 for i, data in enumerate(loader_train):
-	if i == 1:
-		inps,gts,_ = data[:]
-		inps = inps.cuda()
-		gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
-		with torch.no_grad():
-			gfake = model(inps)
-
-		# compute psnr and ssim
-		gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
-		gfake = np.clip(gfake, 0, 1)
-		if mflag == 1: #nr
-			gfake = three2one(gfake)
-			gts = three2one(gts)
-		if mflag == 5:
-			gfake = gfake[:,:,0]
-			gts = gts[:,:,0]
-
-		isppsnr = compare_psnr(gts, gfake, data_range=1.0)
-		if  mflag == 1 or  mflag == 5:
-			ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
-		else:
-			ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=True)
-		print(isppsnr)
-		totalpsnr+= isppsnr
-		totalssim += ispssim
-		totalnum += 1
+	inps,gts,_ = data[:]
+	inps = inps.cuda()
+	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
+	with torch.no_grad():
+		gfake = model(inps)
+	# compute psnr and ssim
+	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
+	gfake = np.clip(gfake, 0, 1)
+	if mflag == 1: #nr
+		gfake = three2one(gfake)
+		gts = three2one(gts)
+	if mflag == 5:
+		gfake = gfake[:,:,0]
+		gts = gts[:,:,0]
+	isppsnr = compare_psnr(gts, gfake, data_range=1.0)
+	if  mflag == 1 or  mflag == 5:
+		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
+	else:
+		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=True)
+	print(isppsnr)
+	totalpsnr+= isppsnr
+	totalssim += ispssim
+	totalnum += 1
 tasks = ['nr','dm','nrdm_small','nrdm_big','sr']
 print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 

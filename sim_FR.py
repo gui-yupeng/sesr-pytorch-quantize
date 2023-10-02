@@ -1,4 +1,5 @@
-#寻找真相
+# 寻找真相
+# 目标已达成，此文件废弃
 import torch
 from models import dm
 from models import sesr_sim,sesr
