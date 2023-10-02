@@ -112,9 +112,7 @@ def quantize_symmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_m
     if exe_mode == 0 :
         quantized_tensor = tensor_quan * quan_scale
     elif exe_mode == 1 :
-        # quantized_tensor = tensor_quan
-       
-        quantized_tensor = tensor_quan * quan_scale
+        quantized_tensor = tensor_quan
 
     if WEIGHT_W_HIST_PNG:
         store_path = "output_png/weight_quan/"

@@ -78,7 +78,7 @@ def PEs_and_bias_adder_fr(input_tensor, bias, pe_add_width, pe_acc_width, bias_w
     overflow_min = 0 - 2**(pe_add_width - 1)
     
 
-    input_tensor_overflowed = torch.clamp(input_tensor, min=overflow_min, max=overflow_max) 
+    #input_tensor_overflowed = torch.clamp(input_tensor, min=overflow_min, max=overflow_max) 
 
     # Convert bias list to tensor
     bias_tensor = Tensor(bias).to(input_tensor.device)
@@ -97,20 +97,22 @@ def PEs_and_bias_adder_fr(input_tensor, bias, pe_add_width, pe_acc_width, bias_w
 
     if exe_mode == 0:
         output_tensor = input_tensor
-        if func_id == 0:
-            np_tensor = np.array(output_tensor.reshape(-1).cpu())
-            np.savetxt('npresult0.txt',np_tensor)
     elif exe_mode == 1:
         #问题所在
         conv_weight = torch.load("output_pt/weight/conv.weight.{}.pt".format(func_id))
         conv_weight = torch.sum(conv_weight,dim=(1,2,3))
         # conv_append = conv_weight * input_zero
-        print(conv_weight)
-        print(input_zero)
-        conv_append = conv_weight * input_zero * input_scale * weight_scale * 0
+        conv_append = conv_weight * input_zero
         conv_append_broadcast = conv_append[None, :, None, None]
-        # add_const = quantized_bias_broadcast - conv_append_broadcast
-        add_const = quantized_bias_broadcast * bias_scale - conv_append_broadcast
+        if input_zero < -128:
+            input_zero_a = -128
+        else:
+            input_zero_a = input_zero
+        conv_append_a = conv_weight * input_zero_a
+        conv_append_broadcast_a = conv_append_a[None, :, None, None]
+        #
+        input_tensor = input_tensor + conv_append_broadcast_a
+        add_const = quantized_bias_broadcast - conv_append_broadcast
         quan_add_const = torch.clamp(add_const, min=-2**(bias_width-1),max=2**(bias_width-1)-1)
 
         store_path = "output_png/bias/"
@@ -120,12 +122,8 @@ def PEs_and_bias_adder_fr(input_tensor, bias, pe_add_width, pe_acc_width, bias_w
         plt.hist(quan_add_const.reshape(-1).cpu().numpy(),bins=10)
         plt.savefig("output_png/bias/conv.bias.{}.png".format(func_id))
 
-        output_tensor = input_tensor_overflowed + quan_add_const
-        # output_tensor = output_tensor * input_scale * weight_scale
-        
-        if func_id == 0:
-            np_tensor = np.array(output_tensor.reshape(-1).cpu())
-            np.savetxt('npresult1.txt',np_tensor)
+        output_tensor = input_tensor + quan_add_const
+        output_tensor = output_tensor * input_scale * weight_scale
 
     return output_tensor
 
@@ -139,7 +137,10 @@ def quantize_asymmetrical_by_tensor_fr(tensor_input: torch.Tensor, width: int, e
     if exe_mode == 1:
         # return torch.tensor(quantized_tensor, dtype=torch.int32)
         # return quantized_tensor
-        return (quantized_tensor - zero ) * scale
+        if zero < -128:
+            return quantized_tensor - (-128)
+        else:
+            return quantized_tensor - zero
     elif exe_mode == 0:
         return (quantized_tensor - zero) * scale
 
