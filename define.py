@@ -3,9 +3,9 @@ PE          =      4
 
 QUAN_BIT    =      8
 
-BIAS_BIT            =      32           #对量化后的bias(int)和bias(int)-Xzero*sum(Wint)同时做clamp
-PE_ACC_BIT          =      32
-PE_ADD_BIT          =      32
+BIAS_BIT            =      19           #对量化后的bias(int)和bias(int)-Xzero*sum(Wint)同时做clamp
+PE_ACC_BIT          =      18
+PE_ADD_BIT          =      20
 
 REQUAN_BIT          =      16
 REQUAN_N_MAX        =      32

@@ -157,7 +157,7 @@ def quantize_model_weight(model_input: nn.Module, weight_width: int, exe_mode: i
     model.load_state_dict(model_parameters)
     return model
 
-def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_mode :int, func_id: int = None, filename : str = None) -> torch.Tensor:
+def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_mode :int, func_id: int = None) -> torch.Tensor:
     """
     exe mode 0: return tensor staged
     exe mode 1: return tensor quantized
@@ -217,6 +217,39 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
         quantized_tensor = (tensor_quan - quan_zero) * quan_scale
 
     elif exe_mode == 1 :
+        # if func_id == 4:
+        #     residual = torch.load("output_pt/residual/shortcut_tensor.pt")
+        #     tensor_add = torch.round(residual) + torch.round(tensor_input)
+        #     quan_max = 2 ** (width - 1) - 1
+        #     quan_min = 0 - 2 ** (width - 1)
+
+        #     scale_1 = torch.load("output_pt/input/input.{}.scale.pt".format(1))
+
+        #     res_add_requan = scale_1 / scale
+        #     res_add_requan_16bit, res_add_requan_n = quan_layer_between_const(res_add_requan, REQUAN_BIT, REQUAN_N_MAX)
+        #     tensor_add = tensor_add * res_add_requan_16bit * (2**(0-res_add_requan_n))
+        #     quantized_tensor = torch.clamp(torch.round(tensor_add + zero), min=quan_min, max=quan_max)
+        # else:
+        #     max_val = torch.max(tensor_input).item()
+        #     min_val = torch.min(tensor_input).item()
+
+        #     assert max_val != min_val , "Input tensor is all equal"
+
+        #     inp_max = max_val
+        #     inp_min = min_val
+        #     quan_max = 2 ** (width - 1) - 1
+        #     quan_min = 0 - 2 ** (width - 1)
+
+        #     quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
+        #     quan_zero = quan_min - round(inp_min/quan_scale)
+
+        #     tensor_quan = torch.clamp(torch.round(tensor_input / quan_scale + quan_zero), min=quan_min, max=quan_max)
+
+        #     #store the pt file
+
+        #     torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(func_id))
+        #     torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(func_id))
+
         if func_id == 0:
             #只有第一层需要量化，其余层做requantize
             scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id))
@@ -263,8 +296,11 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
     if exe_mode == 0:
         return quantized_tensor
     elif exe_mode == 1:
-        return quantized_tensor - zero
-        # return quantized_tensor + 128
+        if zero < -128:
+            return quantized_tensor - (-128)
+        else:
+            return quantized_tensor - zero
+        
     
 
 
@@ -321,10 +357,20 @@ def reshape_ouput_for_hardware_pe(input_tensor: Tensor, conv_weight, width_accum
         conv_weight_pe3 = conv_weight_pe3[: , None, None]
         # 目前仅支持输入batch = 1 
         input_add_zero = torch.zeros_like(input_tensor)
+        if input_zero < -128:
+            input_zero = -128
         input_add_zero[0,:,:,:] = input_tensor[0,:,:,:] + conv_weight_pe0 * input_zero
         input_add_zero[1,:,:,:] = input_tensor[1,:,:,:] + conv_weight_pe1 * input_zero
         input_add_zero[2,:,:,:] = input_tensor[2,:,:,:] + conv_weight_pe2 * input_zero
         input_add_zero[3,:,:,:] = input_tensor[3,:,:,:] + conv_weight_pe3 * input_zero
+        # 测试硬件的阶段溢出
+        # if input_add_zero.max()>overflow_max:
+        #     print('max_overflow')
+        # if input_add_zero.min()<overflow_min:
+        #     print('min_overflow')
+        # input_pos = input_add_zero % (2**(width_accum-1))
+        # input_neg = (input_add_zero*(-1) % (2**(width_accum-1))) * (-1)
+        # input_tensor_overflowed = torch.where(input_add_zero >= 0 ,input_pos, input_neg)
         input_tensor_overflowed = torch.clamp(input_add_zero, min=overflow_min, max=overflow_max)
 
     if(OUTPUT_PE_W_FLG):
@@ -403,10 +449,14 @@ def PEs_and_bias_adder(input_tensor, bias, pe_add_width, pe_acc_width, bias_widt
     # Convert bias list to tensor
     bias_tensor = Tensor(bias).to(input_tensor.device)
     # Broadcast 1D tensor to 4D
-    bias_tensor_broadcast = bias_tensor[None, :, None, None]
-
     bias_scale = input_scale * weight_scale
-    quantized_bias_broadcast = quantize_bias_with_scale(bias_tensor_broadcast, bias_scale, bias_width, exe_mode, func_id)
+    quantized_bias = quantize_bias_with_scale(bias_tensor, bias_scale, bias_width, exe_mode, func_id)
+    quantized_bias_broadcast = quantized_bias[None, :, None, None]
+    store_path = "output_pt/bias/"
+    if  not os.path.exists(store_path):#如果路径不存在
+        os.makedirs(store_path)
+    torch.save(bias_scale, "output_pt/bias/conv.bias.{}.scale.pt".format(func_id))
+    torch.save(bias_tensor, "output_pt/bias/conv.bias.{}.pt".format(func_id))
 
     if exe_mode == 0:
         # Add the bias
@@ -462,6 +512,7 @@ def requan_conv2d_output(input_tensor, func_id, exe_mode):
             requan_const = this_input_scale / next_input_scale * this_weight_scale 
             requan_const_16bit, requan_const_n = quan_layer_between_const(requan_const, REQUAN_BIT, REQUAN_N_MAX)
             output_tensor = input_tensor * requan_const_16bit * 2**(0-requan_const_n)
+            output_shortcut = F.relu(output_tensor)
 
             if REQUAN_FACTOR_W_FLG :
                 store_path = "output_pt/requan_factor/"
@@ -480,7 +531,7 @@ def requan_conv2d_output(input_tensor, func_id, exe_mode):
             store_path = "output_pt/residual/"
             if  not os.path.exists(store_path):#如果路径不存在
                 os.makedirs(store_path)
-            torch.save(output_tensor,"output_pt/residual/shortcut_tensor.pt")
+            torch.save(output_shortcut,"output_pt/residual/shortcut_tensor.pt")
 
             # if REQUAN_FACTOR_W_FLG :
             #     torch.save(requan_const_16bit_res,"output_pt/requan_factor/requan_res_0_4.pt")
