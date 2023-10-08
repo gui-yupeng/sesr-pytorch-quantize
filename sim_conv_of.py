@@ -15,14 +15,6 @@ from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 from models import quantize_utils_cuda as quantize
 
 from define import QUAN_BIT, PE, BIAS_BIT, PE_ACC_BIT, PE_ADD_BIT
-
-from myQL.quan_func import 	quantize_model_weight, \
-							quantize_asymmetrical_by_tensor, \
-							reshape_input_for_hardware_pe, \
-							PEs_and_bias_adder,\
-							requan_conv2d_output
-from myQL.quan_classes import NodeInsertMapping, FunctionPackage, NodeInsertMappingElement
-from myQL.graph_modify import insert_before, insert_bias_bypass, insert_after
 from myQL.quan_modules import sesr_forward_sim
 
 mflag = 5

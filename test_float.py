@@ -54,7 +54,7 @@ state_temp_dict = torch.load(checkpointp +'G.pth')
 model.load_state_dict(state_temp_dict)
 # infer
 model.collapse()
-# print(model)
+print(model)
 def three2one(in_np):
 	outs = np.zeros(( in_np.shape[0], in_np.shape[1]))
 	outs[0::2, 0::2] = in_np[0::2, 0::2, 0]

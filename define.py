@@ -13,7 +13,7 @@ REQUAN_N_MAX        =      32
 
 
 
-w_flg_c = False
+w_flg_c = True
 
 WEIGHT_W_FLG            =   w_flg_c and True                #输出weight的txt
 INPUT_W_FLG             =   w_flg_c and True                #输出input的Tensor

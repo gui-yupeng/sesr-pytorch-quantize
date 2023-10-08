@@ -74,13 +74,25 @@ def conv_forward_naive(x, w, stride, pad_num, pad_value):
     x_pad[:,:,P:P+H,P:P+W]=x
     #x_pad = np.pad(x, ((0,), (0,), (P,), (P,)), 'constant')
     out = torch.zeros((N,F,Ho,Wo)).cuda()
+    
+    overflow_max = 2**(PE_ACC_BIT-1) - 1
+    overflow_min = 0 - 2**(PE_ACC_BIT - 1)
  
     for f in range(F):
       for i in range(Ho):
         for j in range(Wo):
-          # N*C*HH*WW, C*HH*WW = N*C*HH*WW, sum -> N*1
-          out[:,f,i,j] = torch.sum(x_pad[:, :, i*S : i*S+HH, j*S : j*S+WW] * w[f, :, :, :], dim=(1, 2, 3)) 
- 
+            # 不考虑累加溢出
+            # out[:,f,i,j] = torch.sum(x_pad[:, :, i*S : i*S+HH, j*S : j*S+WW] * w[f, :, :, :], dim=(1, 2, 3)) 
+            # 考虑累加溢出
+            out_acc = torch.zeros(N).cuda()
+            for kc in range(C):
+                for kh in range(HH):
+                    for kw in range(WW):
+                        out_acc[:] = out_acc[:] + x_pad[:, kc, i*S + kh, j*S + kw] * w[f, kc, kh, kw]
+                        # 处理累加溢出
+                        out_acc = torch.clamp(out_acc, min=overflow_min, max=overflow_max)
+
+            out[:,f,i,j] = out_acc[:]
     #   out[:,f,:,:]+=b[f]
 #     cache = (x, w, b, conv_param)
 #     return out, cache

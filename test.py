@@ -74,6 +74,8 @@ mapping = NodeInsertMapping()
 quan_FP = FunctionPackage(quantize_asymmetrical_by_tensor, {'width': QUAN_BIT, 'exe_mode':qmode})
 conv2d_config = NodeInsertMappingElement(torch.nn.Conv2d, quan_FP)
 mapping.add_config(conv2d_config)
+conv2d_config_pxlshfl = NodeInsertMappingElement(torch.nn.PixelShuffle, quan_FP)
+mapping.add_config(conv2d_config_pxlshfl)
 model = insert_before(model_input=model, insert_mapping=mapping, has_func_id=True)
 
 # 2: divide input into 4 batches for 4 PEs
@@ -143,7 +145,7 @@ print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totals
 
 #加一些暂时的代码，原本计划加在激活量化的exe_mode == 0里面，针对观察出来的max min计算scale和zero，但为了找出psnr38的真相，暂时保留在这里
 print("calibrate start")
-for id in range(5):
+for id in range(6):
 	inp_max = torch.load("output_pt/input/input.{}.max_val.pt".format(id))
 	inp_min = torch.load("output_pt/input/input.{}.min_val.pt".format(id))
 	quan_max = 2 ** (QUAN_BIT - 1) - 1
@@ -156,6 +158,23 @@ for id in range(5):
 	# quan_zero = 0
 	torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
 	torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
+#pixelshuffle输入的量化单独做
+# inp_max = torch.load("output_pt/input/input.5.max_val.pt")
+# inp_min = torch.load("output_pt/input/input.5.min_val.pt")
+# if inp_min > 0:
+# 	inp_min = 0
+# quan_max = 2 ** (QUAN_BIT - 1) - 1
+# quan_min = 0 - 2 ** (QUAN_BIT - 1)
+# quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
+# quan_zero = quan_min - round(inp_min/quan_scale)
+# print('scale:',quan_scale)
+# print('zero:',quan_zero)
+# # quan_scale = 1
+# # quan_zero = 0
+# torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
+# torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
+
+
 # inps = torch.rand(1,1,40,40).cuda()
 # gfake = model(inps)
 print("calibrate end")
