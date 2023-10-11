@@ -545,6 +545,8 @@ def requan_conv2d_output(input_tensor, func_id, exe_mode):
                 torch.save(requan_const_n,"output_pt/requan_factor/n_{}_{}.pt".format(func_id, func_id + 1))
 
             output_tensor = torch.clamp(torch.round(output_tensor + next_input_zero),min= -2**(QUAN_BIT-1), max= 2**(QUAN_BIT-1)-1)
+            if INPUT_W_FLG:
+                torch.save(output_tensor,"output_pt/input/input.{}.pt".format(func_id + 1))
             # 为便于软件测试，重量化
             output_tensor = (output_tensor - next_input_zero) * next_input_scale
 
