@@ -158,7 +158,7 @@ for id in range(6):
 	# quan_zero = 0
 	torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
 	torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
-#pixelshuffle输入的量化单独做
+# pixelshuffle输入的量化单独做
 # inp_max = torch.load("output_pt/input/input.5.max_val.pt")
 # inp_min = torch.load("output_pt/input/input.5.min_val.pt")
 # if inp_min > 0:

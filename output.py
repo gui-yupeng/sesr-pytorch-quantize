@@ -2,7 +2,7 @@ import torch
 import math
 import os
 import math
-from define import PE_ACC_BIT, PE_ADD_BIT, QUAN_BIT, REQUAN_BIT, REQUAN_N_MAX
+from define import PE_ACC_BIT, PE_ADD_BIT, QUAN_BIT, REQUAN_BIT, REQUAN_N_MAX, BIAS_BIT
 
 target = "input"
 # target = "bias"
@@ -122,7 +122,7 @@ if target == "bias":
             f.write(float_to_hex(chnl,8))
             f.write('\n')
             for ci in range(chnl):
-                f.write(float_to_hex(bias_quan[0,ci,0,0],REQUAN_BIT))
+                f.write(float_to_hex(bias_quan[0,ci,0,0],BIAS_BIT))
                 f.write(float_to_hex(requan_factor,REQUAN_BIT))
                 f.write(requan_res)
                 f.write('\n')
