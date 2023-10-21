@@ -14,7 +14,7 @@ from skimage.metrics import structural_similarity as compare_ssim
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 from models import quantize_utils_cuda as quantize
 
-from define import QUAN_BIT, PE, BIAS_BIT, PE_ACC_BIT, PE_ADD_BIT
+from define import QUAN_BIT, PE, BIAS_BIT, PE_ACC_BIT, PE_ADD_BIT, MFLAG
 
 from myQL.quan_func import quantize_model_weight, quantize_asymmetrical_by_tensor, reshape_input_for_hardware_pe, PEs_and_bias_adder, requan_conv2d_output
 from myQL.quan_classes import NodeInsertMapping, FunctionPackage, NodeInsertMappingElement
@@ -22,7 +22,7 @@ from myQL.graph_modify import insert_before, insert_bias_bypass, insert_after
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-mflag = 3
+mflag = MFLAG
 #qatf = "qat_"
 qatf = ""
 if mflag == 1:
@@ -161,21 +161,22 @@ for id in range(5):
 	torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
 	torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
 
-# pixelshuffle输入的量化单独做
-inp_max = torch.load("output_pt/input/input.5.max_val.pt")
-inp_min = torch.load("output_pt/input/input.5.min_val.pt")
-if inp_min > 0:
-	inp_min = 0
-quan_max = 2 ** (QUAN_BIT - 1) - 1
-quan_min = 0 - 2 ** (QUAN_BIT - 1)
-quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
-quan_zero = quan_min - round(inp_min/quan_scale)
-print('scale:',quan_scale)
-print('zero:',quan_zero)
-# quan_scale = 1
-# quan_zero = 0
-torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
-torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
+if mflag == 5:
+	# pixelshuffle输入的量化单独做
+	inp_max = torch.load("output_pt/input/input.5.max_val.pt")
+	inp_min = torch.load("output_pt/input/input.5.min_val.pt")
+	if inp_min > 0:
+		inp_min = 0
+	quan_max = 2 ** (QUAN_BIT - 1) - 1
+	quan_min = 0 - 2 ** (QUAN_BIT - 1)
+	quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
+	quan_zero = quan_min - round(inp_min/quan_scale)
+	print('scale:',quan_scale)
+	print('zero:',quan_zero)
+	# quan_scale = 1
+	# quan_zero = 0
+	torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
+	torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
 
 
 # inps = torch.rand(1,1,40,40).cuda()

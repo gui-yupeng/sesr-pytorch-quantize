@@ -14,7 +14,7 @@ from skimage.metrics import structural_similarity as compare_ssim
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 from models import quantize_utils_cuda as quantize
 
-from define import QUAN_BIT, PE, BIAS_BIT, PE_ACC_BIT, PE_ADD_BIT
+from define import QUAN_BIT, PE, BIAS_BIT, PE_ACC_BIT, PE_ADD_BIT, MFLAG
 
 from myQL.quan_func import 	quantize_model_weight, \
 							quantize_asymmetrical_by_tensor, \
@@ -27,7 +27,7 @@ from myQL.graph_modify import insert_before, insert_bias_bypass, insert_after
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 # 我们只使用 3 和 5
-mflag = 3
+mflag = MFLAG
 #qatf = "qat_"
 qatf = ""
 if mflag == 1:
