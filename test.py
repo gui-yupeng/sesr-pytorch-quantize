@@ -161,22 +161,22 @@ for id in range(5):
 	torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
 	torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
 
-if mflag == 5:
-	# pixelshuffle输入的量化单独做
-	inp_max = torch.load("output_pt/input/input.5.max_val.pt")
-	inp_min = torch.load("output_pt/input/input.5.min_val.pt")
-	if inp_min > 0:
-		inp_min = 0
-	quan_max = 2 ** (QUAN_BIT - 1) - 1
-	quan_min = 0 - 2 ** (QUAN_BIT - 1)
-	quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
-	quan_zero = quan_min - round(inp_min/quan_scale)
-	print('scale:',quan_scale)
-	print('zero:',quan_zero)
-	# quan_scale = 1
-	# quan_zero = 0
-	torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
-	torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
+
+# pixelshuffle输入的量化单独做
+inp_max = torch.load("output_pt/input/input.5.max_val.pt")
+inp_min = torch.load("output_pt/input/input.5.min_val.pt")
+if inp_min > 0:
+	inp_min = 0
+quan_max = 2 ** (QUAN_BIT - 1) - 1
+quan_min = 0 - 2 ** (QUAN_BIT - 1)
+quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
+quan_zero = quan_min - round(inp_min/quan_scale)
+print('scale:',quan_scale)
+print('zero:',quan_zero)
+# quan_scale = 1
+# quan_zero = 0
+torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id+1))
+torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id+1))
 
 
 # inps = torch.rand(1,1,40,40).cuda()

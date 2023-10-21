@@ -108,50 +108,53 @@ model = insert_bias_bypass(model_input=model, insert_mapping=bypass_mapping)
 
 
 
-def three2one(in_np):
-	outs = np.zeros(( in_np.shape[0], in_np.shape[1]))
-	outs[0::2, 0::2] = in_np[0::2, 0::2, 0]
-	outs[1::2, 0::2] = in_np[1::2, 0::2, 1]
-	outs[0::2, 1::2] = in_np[0::2, 1::2, 1]
-	outs[1::2, 1::2] = in_np[1::2, 1::2, 2]
-	return outs
+# def three2one(in_np):
+# 	outs = np.zeros(( in_np.shape[0], in_np.shape[1]))
+# 	outs[0::2, 0::2] = in_np[0::2, 0::2, 0]
+# 	outs[1::2, 0::2] = in_np[1::2, 0::2, 1]
+# 	outs[0::2, 1::2] = in_np[0::2, 1::2, 1]
+# 	outs[1::2, 1::2] = in_np[1::2, 1::2, 2]
+# 	return outs
 
-totalpsnr = 0
-totalssim = 0
-totalnum = 0
-for i, data in enumerate(loader_train):
-	inps,gts,_ = data[:]
-	inps = inps.cuda()
-	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
-	with torch.no_grad():
-		gfake = model(inps)
-	# compute psnr and ssim
-	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
-	gfake = np.clip(gfake, 0, 1)
-	if mflag == 1: #nr
-		gfake = three2one(gfake)
-		gts = three2one(gts)
-	if mflag == 5:
-		gfake = gfake[:,:,0]
-		gts = gts[:,:,0]
-	isppsnr = compare_psnr(gts, gfake, data_range=1.0)
-	if  mflag == 1 or  mflag == 5:
-		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
-	else:
-		ispssim = compare_ssim(gts, gfake, data_range=1.0, channel_axis=2)
-	print(isppsnr)
-	totalpsnr+= isppsnr
-	totalssim += ispssim
-	totalnum += 1
-tasks = ['nr','dm','nrdm_small','nrdm_big','sr']
-print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
+# totalpsnr = 0
+# totalssim = 0
+# totalnum = 0
+# for i, data in enumerate(loader_train):
+# 	inps,gts,_ = data[:]
+# 	inps = inps.cuda()
+# 	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
+# 	with torch.no_grad():
+# 		gfake = model(inps)
+# 	# compute psnr and ssim
+# 	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
+# 	gfake = np.clip(gfake, 0, 1)
+# 	if mflag == 1: #nr
+# 		gfake = three2one(gfake)
+# 		gts = three2one(gts)
+# 	if mflag == 5:
+# 		gfake = gfake[:,:,0]
+# 		gts = gts[:,:,0]
+# 	isppsnr = compare_psnr(gts, gfake, data_range=1.0)
+# 	if  mflag == 1 or  mflag == 5:
+# 		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
+# 	else:
+# 		ispssim = compare_ssim(gts, gfake, data_range=1.0, channel_axis=2)
+# 	print(isppsnr)
+# 	totalpsnr+= isppsnr
+# 	totalssim += ispssim
+# 	totalnum += 1
+# tasks = ['nr','dm','nrdm_small','nrdm_big','sr']
+# print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 
-### inps = torch.rand(1,1,40,40).cuda()
+### inps = torch.rand(1,3,40,40).cuda()
 ### print(inps)
-### torch.save(inps,"RandInput.pt")
+### torch.save(inps,"rand_DM_Input.pt")
 
-# inps = torch.load("rand_SR_Input.pt")
-# gfake = model(inps)
+if MFLAG == 3:
+	inps = torch.load("rand_DM_Input.pt")
+elif MFLAG == 5:
+	inps = torch.load("rand_SR_Input.pt")
+gfake = model(inps)
 
 print("bit:",QUAN_BIT)
 

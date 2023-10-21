@@ -1,3 +1,5 @@
+MFLAG     =     3
+
 #目前只支持4个PE
 PE          =      4
 
@@ -10,7 +12,6 @@ PE_ADD_BIT          =      20
 REQUAN_BIT          =      16
 REQUAN_N_MAX        =      32
 
-MFLAG     =     3
 
 
 

@@ -440,6 +440,26 @@ def PEs_and_bias_adder(input_tensor, bias, pe_add_width, pe_acc_width, bias_widt
     if exe_mode == 0:
         # Add the bias
         output_tensor = input_tensor_overflowed + quantized_bias_broadcast
+        if MFLAG == 3 and func_id == 4:
+            max_val = torch.max(output_tensor).item()
+            min_val = torch.min(output_tensor).item()
+
+            #MinMax观察器
+            store_path = "output_pt/input/"
+            if  not os.path.exists(store_path):#如果路径不存在
+                os.makedirs(store_path)
+            if  not os.path.isfile("output_pt/input/input.{}.max_val.pt".format(func_id+1)):
+                torch.save(max_val,"output_pt/input/input.{}.max_val.pt".format(func_id+1))
+                torch.save(min_val,"output_pt/input/input.{}.min_val.pt".format(func_id+1))
+            else:
+                last_max_val = torch.load("output_pt/input/input.{}.max_val.pt".format(func_id+1))
+                last_min_val = torch.load("output_pt/input/input.{}.min_val.pt".format(func_id+1))
+                if last_max_val < max_val :
+                    torch.save(max_val,"output_pt/input/input.{}.max_val.pt".format(func_id+1))
+                    last_max_val = max_val
+                if last_min_val > min_val :
+                    torch.save(min_val,"output_pt/input/input.{}.min_val.pt".format(func_id+1))
+                    last_min_val = min_val
     elif exe_mode == 1:
         conv_weight = torch.sum(conv_weight,dim=(1,2,3))
         conv_append = conv_weight * input_zero
@@ -538,7 +558,7 @@ def requan_conv2d_output(input_tensor, func_id, exe_mode):
             #     torch.save(requan_const_n,"output_pt/requan_factor/n_4_5.pt")
             
             #量化的新的整数域
-            if MFLAG == 5:
+            # if MFLAG == 5:
                 next_input_scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id + 1))
                 next_input_zero = torch.load("output_pt/input/input.{}.zero.pt".format(func_id + 1))
 
@@ -555,9 +575,9 @@ def requan_conv2d_output(input_tensor, func_id, exe_mode):
                     torch.save(output_tensor,"output_pt/input/input.{}.pt".format(func_id + 1))
                 # 为便于软件测试，重量化
                 output_tensor = (output_tensor - next_input_zero) * next_input_scale
-            elif MFLAG == 3:
-                requan_const = this_input_scale * this_weight_scale 
-                output_tensor = input_tensor * requan_const
+            # elif MFLAG == 3:
+            #     requan_const = this_input_scale * this_weight_scale 
+            #     output_tensor = input_tensor * requan_const 
 
         else:
             #其他层，将输出反量化
