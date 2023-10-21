@@ -211,9 +211,6 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
         torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(func_id))
         torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(func_id))
 
-        # debug
-        torch.save(tensor_quan,"debug/input.{}.test.pt".format(func_id))
-
 
         quantized_tensor = (tensor_quan - quan_zero) * quan_scale
 
