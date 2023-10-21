@@ -5,10 +5,10 @@ import math
 from define import PE_ACC_BIT, PE_ADD_BIT, QUAN_BIT, REQUAN_BIT, REQUAN_N_MAX, BIAS_BIT
 
 target = "input"
-# target = "bias"
-# target = "pe_out"
-# target = "pe_add"
-# target = "requan_shift_n"
+
+
+
+
 tile_width = 32
 
 def float_to_hex(item, bit_width):
@@ -106,6 +106,7 @@ if target == "input":
                     block_w_start = block_w_start + current_width
                 block_h_start = block_h_start + current_height
 
+target = "bias"
 if target == "bias":
     store_path = "output_txt/bias/"
     if  not os.path.exists(store_path):#如果路径不存在
@@ -126,7 +127,8 @@ if target == "bias":
                 f.write(float_to_hex(requan_factor,REQUAN_BIT))
                 f.write(requan_res)
                 f.write('\n')
-                
+
+target = "pe_out"
 if target == "pe_out":
     for layer_id in range(5):
         for pe_id in range(4):
@@ -175,6 +177,7 @@ if target == "pe_out":
                                 if block_h_start + h_idx == height - 1:
                                     break
 
+target = "pe_add"
 if target == "pe_add":
     for layer_id in range(5):
         tensor_data = torch.load("output_pt/pe_add/pe_add_output{}.pt".format(layer_id))
@@ -216,6 +219,7 @@ if target == "pe_add":
                             if block_h_start + h_idx == height - 1:
                                 break
 
+target = "requan_shift_n"
 if target == "requan_shift_n":
     store_path = "output_txt/requan_shift_n/"
     if  not os.path.exists(store_path):#如果路径不存在

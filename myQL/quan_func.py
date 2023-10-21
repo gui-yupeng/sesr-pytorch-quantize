@@ -211,26 +211,34 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
         torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(func_id))
         torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(func_id))
 
+        # debug
+        torch.save(tensor_quan,"debug/input.{}.test.pt".format(func_id))
+
 
         quantized_tensor = (tensor_quan - quan_zero) * quan_scale
 
     elif exe_mode == 1 :
-
+        quan_max = 2 ** (width - 1) - 1
+        quan_min = 0 - 2 ** (width - 1)
         if func_id == 0:
             #只有第一层需要量化，其余层做requantize
             scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id))
             zero = torch.load("output_pt/input/input.{}.zero.pt".format(func_id))
-            quan_max = 2 ** (width - 1) - 1
-            quan_min = 0 - 2 ** (width - 1)
+            
             quantized_tensor = torch.clamp(torch.round(tensor_input / scale + zero), min=quan_min, max=quan_max)
 
         elif func_id == 4:
             #残差
-            residual = torch.load("output_pt/residual/shortcut_tensor.pt")
-            tensor_add = torch.round(residual) + torch.round(tensor_input)
+            # residual = torch.load("output_pt/residual/shortcut_tensor.pt")
+            # tensor_add = torch.round(residual) + torch.round(tensor_input)
 
-            quan_max = 2 ** (width - 1) - 1
-            quan_min = 0 - 2 ** (width - 1)
+            residual = torch.load("output_pt/residual/shortcut_tensor.pt")
+            residual_clamp = torch.clamp(torch.round(residual - 2 ** (width - 1)), min=quan_min, max=quan_max)
+            input_clamp = torch.clamp(torch.round(tensor_input - 2 ** (width - 1)), min=quan_min, max=quan_max)
+            tensor_add = residual_clamp + input_clamp +  2 ** width
+
+            # torch.save(input_clamp,"output_pt/input/input.{}.spcial.pt".format(func_id))
+
             scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id))
             scale_1 = torch.load("output_pt/input/input.{}.scale.pt".format(1))
             zero = torch.load("output_pt/input/input.{}.zero.pt".format(func_id))
@@ -249,8 +257,7 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
 
         else:
             #重量化后，加上zero
-            quan_max = 2 ** (width - 1) - 1
-            quan_min = 0 - 2 ** (width - 1)
+
             scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id))
             zero = torch.load("output_pt/input/input.{}.zero.pt".format(func_id))
             # if func_id == 2:
@@ -265,6 +272,7 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
     if exe_mode == 0:
         return quantized_tensor
     elif exe_mode == 1:
+        # 这么做的的原因是pytorch框架内置的卷积只支持pad 0
         if zero < -128:
             return quantized_tensor - (-128)
         else:
@@ -332,7 +340,7 @@ def reshape_ouput_for_hardware_pe(input_tensor: Tensor, conv_weight, width_accum
         input_add_zero[1,:,:,:] = input_tensor[1,:,:,:] + conv_weight_pe1 * input_zero
         input_add_zero[2,:,:,:] = input_tensor[2,:,:,:] + conv_weight_pe2 * input_zero
         input_add_zero[3,:,:,:] = input_tensor[3,:,:,:] + conv_weight_pe3 * input_zero
-        # 测试硬件的阶段溢出
+        # 测试硬件的溢出
         if input_add_zero.max()>overflow_max:
             print('max_overflow')
         if input_add_zero.min()<overflow_min:
@@ -510,7 +518,7 @@ def requan_conv2d_output(input_tensor, func_id, exe_mode):
             #     torch.save(requan_const_16bit_res,"output_pt/requan_factor/requan_res_0_4.pt")
             #     torch.save(requan_const_n_res,"output_pt/requan_factor/n_res_0_4.pt")
         elif func_id == 3:
-            #最后一层，直接反量化为浮点
+            # 量化到第一层卷积残差的输出域
             next_input_scale = torch.load("output_pt/input/input.{}.scale.pt".format(1))
             requan_const = this_input_scale / next_input_scale * this_weight_scale 
             requan_const_16bit, requan_const_n = quan_layer_between_const(requan_const, REQUAN_BIT, REQUAN_N_MAX)

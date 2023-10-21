@@ -2,7 +2,7 @@ import torch
 from models import dm
 from models import sesr_sim,sesr
 from models import nr
-from models import nrdm_3
+from models import nrdm_3_sim, nrdm_3
 from models import nrdm_6
 from self_dataset import TestDataset
 import os
@@ -26,7 +26,8 @@ from myQL.graph_modify import insert_before, insert_bias_bypass, insert_after
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-mflag = 5
+# 我们只使用 3 和 5
+mflag = 3
 #qatf = "qat_"
 qatf = ""
 if mflag == 1:
@@ -38,7 +39,7 @@ elif mflag == 2:
     traindata = TestDataset(2)
     checkpointp = './model_params/dm_' + qatf
 elif mflag == 3:
-    model = nrdm_3.nr()
+    model = nrdm_3_sim.nr()
     traindata = TestDataset(3)
     checkpointp = './model_params/nrdm_3_' + qatf
 elif mflag == 4:
@@ -137,7 +138,7 @@ for i, data in enumerate(loader_train):
 	if  mflag == 1 or  mflag == 5:
 		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
 	else:
-		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=True)
+		ispssim = compare_ssim(gts, gfake, data_range=1.0, channel_axis=2)
 	print(isppsnr)
 	totalpsnr+= isppsnr
 	totalssim += ispssim
@@ -145,7 +146,11 @@ for i, data in enumerate(loader_train):
 tasks = ['nr','dm','nrdm_small','nrdm_big','sr']
 print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 
-# inps = torch.rand(1,1,40,40).cuda()
+### inps = torch.rand(1,1,40,40).cuda()
+### print(inps)
+### torch.save(inps,"RandInput.pt")
+
+# inps = torch.load("rand_SR_Input.pt")
 # gfake = model(inps)
 
 print("bit:",QUAN_BIT)

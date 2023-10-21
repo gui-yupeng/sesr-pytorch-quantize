@@ -22,7 +22,7 @@ from myQL.graph_modify import insert_before, insert_bias_bypass, insert_after
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-mflag = 5
+mflag = 3
 #qatf = "qat_"
 qatf = ""
 if mflag == 1:
@@ -135,17 +135,19 @@ for i, data in enumerate(loader_train):
 	if  mflag == 1 or  mflag == 5:
 		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
 	else:
-		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=True)
+		ispssim = compare_ssim(gts, gfake, data_range=1.0, channel_axis=2)
 	print(isppsnr)
 	totalpsnr+= isppsnr
 	totalssim += ispssim
 	totalnum += 1
+	# if(i==0):
+	# 	break
 tasks = ['nr','dm','nrdm_small','nrdm_big','sr']
 print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 
-#加一些暂时的代码，原本计划加在激活量化的exe_mode == 0里面，针对观察出来的max min计算scale和zero，但为了找出psnr38的真相，暂时保留在这里
+#用于计算scale和zero，对于最后一个输入(id=5)，防止zero小于-128，硬件无法实现，所以扩大scale，强行令zero=-128 
 print("calibrate start")
-for id in range(6):
+for id in range(5):
 	inp_max = torch.load("output_pt/input/input.{}.max_val.pt".format(id))
 	inp_min = torch.load("output_pt/input/input.{}.min_val.pt".format(id))
 	quan_max = 2 ** (QUAN_BIT - 1) - 1
@@ -158,21 +160,22 @@ for id in range(6):
 	# quan_zero = 0
 	torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
 	torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
+
 # pixelshuffle输入的量化单独做
-# inp_max = torch.load("output_pt/input/input.5.max_val.pt")
-# inp_min = torch.load("output_pt/input/input.5.min_val.pt")
-# if inp_min > 0:
-# 	inp_min = 0
-# quan_max = 2 ** (QUAN_BIT - 1) - 1
-# quan_min = 0 - 2 ** (QUAN_BIT - 1)
-# quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
-# quan_zero = quan_min - round(inp_min/quan_scale)
-# print('scale:',quan_scale)
-# print('zero:',quan_zero)
-# # quan_scale = 1
-# # quan_zero = 0
-# torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
-# torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
+inp_max = torch.load("output_pt/input/input.5.max_val.pt")
+inp_min = torch.load("output_pt/input/input.5.min_val.pt")
+if inp_min > 0:
+	inp_min = 0
+quan_max = 2 ** (QUAN_BIT - 1) - 1
+quan_min = 0 - 2 ** (QUAN_BIT - 1)
+quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
+quan_zero = quan_min - round(inp_min/quan_scale)
+print('scale:',quan_scale)
+print('zero:',quan_zero)
+# quan_scale = 1
+# quan_zero = 0
+torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
+torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
 
 
 # inps = torch.rand(1,1,40,40).cuda()
