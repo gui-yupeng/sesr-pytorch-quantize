@@ -92,7 +92,7 @@ conv2d_config = NodeInsertMappingElement(torch.nn.Conv2d, reshape_function_packa
 bypass_mapping.add_config(conv2d_config)
 model = insert_bias_bypass(model_input=model, insert_mapping=bypass_mapping)
 
-for id in range(5):
+for id in range(6):
 	if os.path.isfile("output_pt/input/input.{}.max_val.pt".format(id)):
 		max_val = -1000
 		min_val = 1000

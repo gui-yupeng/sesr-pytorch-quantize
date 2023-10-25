@@ -192,7 +192,6 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
             if last_min_val > min_val :
                 torch.save(min_val,"output_pt/input/input.{}.min_val.pt".format(func_id))
                 last_min_val = min_val
-
         assert max_val != min_val , "Input tensor is all equal"
 
         inp_max = max_val
@@ -241,7 +240,7 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
             zero = torch.load("output_pt/input/input.{}.zero.pt".format(func_id))
             res_add_requan = scale_1 / scale
             res_add_requan_16bit, res_add_requan_n = quan_layer_between_const(res_add_requan, REQUAN_BIT, REQUAN_N_MAX)
-
+            
             if REQUAN_FACTOR_W_FLG :
                 store_path = "output_pt/requan_factor/"
                 if  not os.path.exists(store_path):#如果路径不存在
@@ -443,7 +442,7 @@ def PEs_and_bias_adder(input_tensor, bias, pe_add_width, pe_acc_width, bias_widt
         if MFLAG == 3 and func_id == 4:
             max_val = torch.max(output_tensor).item()
             min_val = torch.min(output_tensor).item()
-
+            
             #MinMax观察器
             store_path = "output_pt/input/"
             if  not os.path.exists(store_path):#如果路径不存在
@@ -565,12 +564,12 @@ def requan_conv2d_output(input_tensor, func_id, exe_mode):
                 requan_const = this_input_scale / next_input_scale * this_weight_scale 
                 requan_const_16bit, requan_const_n = quan_layer_between_const(requan_const, REQUAN_BIT, REQUAN_N_MAX)
                 output_tensor = input_tensor * requan_const_16bit * 2**(0-requan_const_n)
+                output_tensor = torch.clamp(torch.round(output_tensor + next_input_zero),min= -2**(QUAN_BIT-1), max= 2**(QUAN_BIT-1)-1)
 
                 if REQUAN_FACTOR_W_FLG :
                     torch.save(requan_const_16bit,"output_pt/requan_factor/requan_{}_{}.pt".format(func_id, func_id + 1))
                     torch.save(requan_const_n,"output_pt/requan_factor/n_{}_{}.pt".format(func_id, func_id + 1))
 
-                output_tensor = torch.clamp(torch.round(output_tensor + next_input_zero),min= -2**(QUAN_BIT-1), max= 2**(QUAN_BIT-1)-1)
                 if INPUT_W_FLG:
                     torch.save(output_tensor,"output_pt/input/input.{}.pt".format(func_id + 1))
                 # 为便于软件测试，重量化

@@ -72,6 +72,7 @@ for i, data in enumerate(loader_train):
 	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
 	with torch.no_grad():
 		gfake = model(inps)
+		print(gfake.max(),gfake.min())
 
 	# compute psnr and ssim
 	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)

@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-mflag = 5
+mflag = 3
 # qatf = "qat_"
 qatf = ""
 if mflag == 1:

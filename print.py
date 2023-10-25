@@ -1,12 +1,12 @@
 import torch
 
-for id in range(5):
-	# 打印激活的scale zero
-	quan_scale = torch.load("output_pt/input/input.{}.scale.pt".format(id))
-	quan_zero = torch.load("output_pt/input/input.{}.zero.pt".format(id))
-	print(id)
-	print(quan_scale)
-	print(quan_zero)
+# for id in range(5):
+# 	# 打印激活的scale zero
+# 	quan_scale = torch.load("output_pt/input/input.{}.scale.pt".format(id))
+# 	quan_zero = torch.load("output_pt/input/input.{}.zero.pt".format(id))
+# 	print(id)
+# 	print(quan_scale)
+# 	print(quan_zero)
 
 # for id in range(5):
 # 	# 打印pe_out
@@ -28,3 +28,8 @@ for id in range(5):
 # 	print(id)
 # 	print(requan_factor)
 # 	print(requan_n)
+
+a = torch.load("requan1.pt")
+# a = torch.load("output_pt/pe_add/pe_add_output{}.pt".format(3))
+print(a.size())
+print(a[0,0,0,0])

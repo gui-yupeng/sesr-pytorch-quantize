@@ -14,7 +14,7 @@ from skimage.metrics import structural_similarity as compare_ssim
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 from models import quantize_utils_cuda as quantize
 
-from define import QUAN_BIT, PE, BIAS_BIT, PE_ACC_BIT, PE_ADD_BIT, MFLAG
+from define import QUAN_BIT, PE, BIAS_BIT, PE_ACC_BIT, PE_ADD_BIT, MFLAG, REQUAN_BIT, REQUAN_N_MAX
 
 from myQL.quan_func import 	quantize_model_weight, \
 							quantize_asymmetrical_by_tensor, \
@@ -146,17 +146,23 @@ model = insert_bias_bypass(model_input=model, insert_mapping=bypass_mapping)
 # tasks = ['nr','dm','nrdm_small','nrdm_big','sr']
 # print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 
-### inps = torch.rand(1,3,40,40).cuda()
-### print(inps)
-### torch.save(inps,"rand_DM_Input.pt")
+# inps = torch.rand(1,1,80,80).cuda()
+# print(inps)
+# torch.save(inps,"rand_SR_Input_80x80.pt")
 
 if MFLAG == 3:
-	inps = torch.load("rand_DM_Input.pt")
+	inps = torch.load("rand_DM_Input_80x80.pt")
 elif MFLAG == 5:
-	inps = torch.load("rand_SR_Input.pt")
+	inps = torch.load("rand_SR_Input_80x80.pt")
 gfake = model(inps)
 
-print("bit:",QUAN_BIT)
+print("mflag:",mflag)
+print("QUAN_BIT:",QUAN_BIT)
+print("BIAS_BIT:",BIAS_BIT)
+print("PE_ACC_BIT:",PE_ACC_BIT)
+print("PE_ADD_BIT:",PE_ADD_BIT)
+print("REQUAN_BIT:",REQUAN_BIT)
+print("REQUAN_N_MAX:",REQUAN_N_MAX)
 
 
 
