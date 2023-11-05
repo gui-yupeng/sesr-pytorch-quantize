@@ -1,4 +1,4 @@
-MFLAG     =     5
+MFLAG     =     3
 TEST_RAW_ADD_NOISE = True
 
 #目前只支持4个PE

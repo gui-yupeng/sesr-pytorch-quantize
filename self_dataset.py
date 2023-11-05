@@ -194,8 +194,8 @@ class TestDataset(Dataset):
     def __init__(self, mflag=1, houzuiming='.raw'):
         # self.proot = '/home/guiyp/Work/sesr/test/test_rggb_1024/'
         # self.proot ='/home/guiyp/Work/sesr/DataSet/div2kRAW/raw/'
-        # self.proot ='/home/guiyp/Work/sesr/DataSet/set5RAW/raw/'
-        self.proot ='/home/guiyp/Work/sesr/DataSet/set14RAW/raw/'
+        self.proot ='/home/guiyp/Work/sesr/DataSet/set5RAW/raw/'
+        # self.proot ='/home/guiyp/Work/sesr/DataSet/set14RAW/raw/'
         self.rggb = []
         self.ps = 128
         self.mflag = mflag

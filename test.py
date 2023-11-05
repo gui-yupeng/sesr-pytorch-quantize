@@ -55,7 +55,8 @@ loader_train = torch.utils.data.DataLoader(traindata, batch_size=1, num_workers=
 model.train()
 if qatf == "qat_":
 	quantize.prepare(model, inplace=True, a_bits=8, w_bits=8, q_type=0, q_level="C")
-state_temp_dict = torch.load(checkpointp +'G.pth')
+state_temp_dict = torch.load(checkpointp +'G_raw.pth')
+# state_temp_dict = torch.load(checkpointp +'G.pth')
 model.load_state_dict(state_temp_dict)
 
 # infer
