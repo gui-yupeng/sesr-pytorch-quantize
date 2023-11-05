@@ -1,18 +1,23 @@
-MFLAG     =     3
+MFLAG     =     5
+TEST_RAW_ADD_NOISE = True
 
 #目前只支持4个PE
 PE          =      4
 
 QUAN_BIT    =      8
 
-BIAS_BIT            =      16           #对量化后的bias(int)和bias(int)-Xzero*sum(Wint)同时做clamp
+BIAS_BIT            =      19           #对量化后的bias(int)和bias(int)-Xzero*sum(Wint)同时做clamp
 PE_ACC_BIT          =      18
 PE_ADD_BIT          =      20
 
 REQUAN_BIT          =      16
 REQUAN_N_MAX        =      32
 
-
+# 舍弃KL
+# 是否使用KL熵校准，这个函数应该仅在执行KL校准脚本时为True，其余任何时间都应该为False
+# USE_KL_CALI = False
+# BINS_NUM = 2048
+# TGT_BINS_NUM = 128
 
 
 w_flg_c = True

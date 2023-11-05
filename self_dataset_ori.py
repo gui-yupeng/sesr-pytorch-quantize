@@ -10,7 +10,6 @@ import random
 import h5py
 from scipy.io import loadmat
 import torch.distributions as tdist
-from define import TEST_RAW_ADD_NOISE
 
 def aug_img_np(img, mode=0):
     # data augmentation
@@ -46,14 +45,11 @@ def crop_img_np(rgb, patch_size, center_crop=True):
 
 def mosaic(image):
     """Extracts RGGB Bayer planes from an RGB image."""
-    # original demosaic 256*256 -> 256*256*3 逆过程： 256*256*3 -> 256*256 (256/2 256/2 4)
-    # image 256*256*3 
-    red = image[0, 0::2, 0::2] # 256/2 256/2
+    red = image[0, 0::2, 0::2]
     green_red = image[1, 0::2, 1::2]
     green_blue = image[1, 1::2, 0::2]
     blue = image[2, 1::2, 1::2]
-    out = torch.stack((red, green_red, green_blue, blue), dim=0) # ( 256/2 ,256/2,4 )
-    # in dndm(demosaic)   需要 256*256 （伪3通道）
+    out = torch.stack((red, green_red, green_blue, blue), dim=0)
     return out
 
 def random_noise_levels():
@@ -103,61 +99,27 @@ def four2three( four_tensor):
         define load data
  *******************************'''
 class TrainDataset(Dataset):
-    def __init__(self, mflag=1, houzuiming='.raw'):
-        # self.proot ='/home/guiyp/Work/sesr/train/train_rggb/'
-        self.proot ='/home/guiyp/Work/sesr/DataSet/div2kRAW/raw/'
+    def __init__(self, mflag=1):
+        self.proot ='/home/guiyp/Work/sesr/train/train_rggb/'
         self.rggb = []
         self.ps = 128
         self.mflag = mflag
-        for tt in glob.glob(self.proot+'*'+houzuiming):
-            if houzuiming =='.mat':
-                img = scio.loadmat(tt)['mat_crop'] #rggb,int16
-                img = np.int16( np.array(img) )
-                img = np.clip(cv2.resize(img, (256, 256), interpolation=cv2.INTER_AREA), 0, 1)
-            if houzuiming == '.raw':
-                # with open(tt) as f:
-                #     rectype = np.dtype(np.uint16)
-                #     raw = np.fromfile(f, dtype=rectype)
-                # ww,hh =read_txt(tt)
-                # raw = raw.reshape(ww,hh)
-                # img = np.int16( np.array(img) )
-                img = tt
-            self.rggb.append(img)
+        for tt in glob.glob(self.proot+'*.mat'):
+            # img = scio.loadmat(tt)['mat_crop'] #rggb,int16
+            # img = np.int16( np.array(img) )
+            # img = np.clip(cv2.resize(img, (256, 256), interpolation=cv2.INTER_AREA), 0, 1)
+            self.rggb.append(tt)
     def __len__(self):
         return len(self.rggb)
     def __getitem__(self, index):
         tt = self.rggb[index]
-        png_path = tt.split('_')[0]+".png"
-        png_path = png_path.replace("raw","png")
-        # '/home/guiyp/Work/sesr/DataSet/div2kRAW/png/*.png'
-        img_png = cv2.imread(png_path ,-1)
-        img_png_rgb = cv2.cvtColor(img_png, cv2.COLOR_BGR2RGB)
-        img_png_rgb = img_png_rgb.astype(np.float32)
-        gt = torch.from_numpy(img_png_rgb.transpose(2, 0, 1).copy()).float() / (2**12-1) 
+        img = scio.loadmat(tt)['mat_crop']  # rggb,int16
+        img = np.array(img) / (2**14-1.) #14bit
 
-        with open(tt) as f:
-            rectype = np.dtype(np.uint16)
-            raw = np.fromfile(f, dtype=rectype)
-            ww = int( tt.split('_')[1] )
-            hh = int(tt.split('_')[-1][:-4])
-            raw = raw.reshape(ww,hh)
-
-        bii = np.random.randint(0, ww - self.ps)//2 * 2
-        bjj = np.random.randint(0, hh - self.ps)//2 * 2
-        img_patch = raw[bii:bii + self.ps, bjj:bjj + self.ps]
-        gt = gt[:,bii:bii + self.ps, bjj:bjj + self.ps]
-
-        img_patch_=np.zeros((self.ps, self.ps, 3))
-        img_patch_[0::2,0::2,0] = img_patch[0::2,0::2]
-        img_patch_[0::2,1::2,1] = img_patch[0::2,1::2]
-        img_patch_[1::2,0::2,1] = img_patch[1::2,0::2]
-        img_patch_[1::2,1::2,2] = img_patch[1::2,1::2]
-
-        inp = torch.from_numpy(img_patch_.transpose(2, 0, 1).copy()).float() / (2**12-1)
-        shot_noise, read_noise = random_noise_levels()
-        inp = add_noise(inp, shot_noise, read_noise)
-        variance = shot_noise * inp + read_noise
-        """
+        WW, HH = img.shape[:2]
+        bii = np.random.randint(0, WW - self.ps)
+        bjj = np.random.randint(0, HH - self.ps)
+        img_patch = img[bii:bii + self.ps, bjj:bjj + self.ps, :]
         linrgb = np.stack((img_patch[:, :, 0], \
                np.mean(img_patch[:, :, 1:3], axis=-1), img_patch[:, :, 3]), axis=2)
         linrgb = np.clip( aug_img_np(linrgb, random.randint(0, 7)) ,0,1)
@@ -187,71 +149,38 @@ class TrainDataset(Dataset):
                 inp = add_noise(inp, shot_noise, read_noise)
                 variance = shot_noise * inp + read_noise
                 inp = four2three(inp)
-        """
         return torch.clamp(inp,0,1), torch.clamp(gt,0,1), variance
 # self.proot = '/home/data/yiqing.zh/test/'
 class TestDataset(Dataset):
-    def __init__(self, mflag=1, houzuiming='.raw'):
-        # self.proot = '/home/guiyp/Work/sesr/test/test_rggb_1024/'
-        # self.proot ='/home/guiyp/Work/sesr/DataSet/div2kRAW/raw/'
-        # self.proot ='/home/guiyp/Work/sesr/DataSet/set5RAW/raw/'
-        self.proot ='/home/guiyp/Work/sesr/DataSet/set14RAW/raw/'
+    def __init__(self, mflag=1):
+        self.proot = '/home/guiyp/Work/sesr/test/test_rggb_1024/'
         self.rggb = []
         self.ps = 128
         self.mflag = mflag
-        for tt in glob.glob(self.proot+'*'+houzuiming):
-            if houzuiming =='.mat':
-                img = scio.loadmat(tt)['mat_crop'] #rggb,int16
-                img = np.int16( np.array(img) )
-                img = np.clip(cv2.resize(img, (256, 256), interpolation=cv2.INTER_AREA), 0, 1)
-            if houzuiming == '.raw':
-                # with open(tt) as f:
-                #     rectype = np.dtype(np.uint16)
-                #     raw = np.fromfile(f, dtype=rectype)
-                # ww,hh =read_txt(tt)
-                # raw = raw.reshape(ww,hh)
-                # img = np.int16( np.array(img) )
-                img = tt
-            self.rggb.append(img)
+        for tt in glob.glob(self.proot+'*.mat'):
+            # img = scio.loadmat(tt)['mat_crop'] #rggb,int16
+            # img = np.int16( np.array(img) )
+            # img = np.clip(cv2.resize(img, (256, 256), interpolation=cv2.INTER_AREA), 0, 1)
+            self.rggb.append(tt)
     def __len__(self):
         return len(self.rggb)
     def __getitem__(self, index):
         tt = self.rggb[index]
-        png_path = tt.split('_')[0]+".png"
-        png_path = png_path.replace("raw","png")
-        img_png = cv2.imread(png_path ,-1)
-        img_png_rgb = cv2.cvtColor(img_png, cv2.COLOR_BGR2RGB)
-        img_png_rgb = img_png_rgb.astype(np.float32)
-        gt = torch.from_numpy(img_png_rgb.transpose(2, 0, 1).copy()).float() / (2**12-1) 
-        
 
-        with open(tt) as f:
-            rectype = np.dtype(np.uint16)
-            raw = np.fromfile(f, dtype=rectype)
-            ww = int( tt.split('_')[1] )
-            hh = int(tt.split('_')[-1][:-4])
-            raw = raw.reshape(ww,hh)
+        with h5py.File(tt) as matfile:
+            rggb = np.asarray(matfile['raw']).astype(np.float32) / (2 ** 14- 1.)
+            img = np.transpose(rggb, (2, 1, 0))
+            # matainfo = matfile['metadata']
+            # matainfo = {'colormatrix': np.transpose(matainfo['colormatrix']),
+            #                 'red_gain': matainfo['red_gain'],
+            #                 'blue_gain': matainfo['blue_gain'] }
+            # ccm, red_g, blue_g = process.metadata2tensor(matainfo)
+            # metadata = {'ccm': ccm, 'red_gain': red_g, 'blue_gain': blue_g}
 
-        # bii = np.random.randint(0, ww - self.ps)//2 * 2
-        # bjj = np.random.randint(0, hh - self.ps)//2 * 2
-        # img_patch = raw[bii:bii + self.ps, bjj:bjj + self.ps]
-        # gt = gt[:,bii:bii + self.ps, bjj:bjj + self.ps]
-        img_patch = raw
-        
-        img_patch_=np.zeros((ww, hh, 3))
-        img_patch_[0::2,0::2,0] = img_patch[0::2,0::2]
-        img_patch_[0::2,1::2,1] = img_patch[0::2,1::2]
-        img_patch_[1::2,0::2,1] = img_patch[1::2,0::2]
-        img_patch_[1::2,1::2,2] = img_patch[1::2,1::2]
-
-        inp = torch.from_numpy(img_patch_.transpose(2, 0, 1).copy()).float() / (2**12-1)
-        
-        shot_noise, read_noise = random_noise_levels()
-        if TEST_RAW_ADD_NOISE:
-            inp = add_noise(inp, shot_noise, read_noise)
-        variance = shot_noise * inp + read_noise
-        
-        """
+        # WW, HH = img.shape[:2]
+        # bii = np.random.randint(0, WW - self.ps)
+        # bjj = np.random.randint(0, HH - self.ps)
+        # img_patch = img[bii:bii + self.ps, bjj:bjj + self.ps, :]
         linrgb = np.stack((img[:, :, 0], \
                np.mean(img[:, :, 1:3], axis=-1), img[:, :, 3]), axis=2)
         if self.mflag == 5: #sr
@@ -280,5 +209,4 @@ class TestDataset(Dataset):
                 inp = add_noise(inp, shot_noise, read_noise)
                 variance = shot_noise * inp + read_noise
                 inp = four2three(inp)
-        """
         return torch.clamp(inp,0,1), torch.clamp(gt,0,1), variance

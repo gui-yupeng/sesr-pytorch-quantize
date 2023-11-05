@@ -14,7 +14,7 @@ from skimage.metrics import structural_similarity as compare_ssim
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 from models import quantize_utils_cuda as quantize
 
-from define import QUAN_BIT, PE, BIAS_BIT, PE_ACC_BIT, PE_ADD_BIT, MFLAG
+from define import QUAN_BIT, PE, BIAS_BIT, PE_ACC_BIT, PE_ADD_BIT, MFLAG, TGT_BINS_NUM, BINS_NUM
 
 from myQL.quan_func import quantize_model_weight, quantize_asymmetrical_by_tensor, reshape_input_for_hardware_pe, PEs_and_bias_adder, requan_conv2d_output
 from myQL.quan_classes import NodeInsertMapping, FunctionPackage, NodeInsertMappingElement
@@ -92,13 +92,6 @@ conv2d_config = NodeInsertMappingElement(torch.nn.Conv2d, reshape_function_packa
 bypass_mapping.add_config(conv2d_config)
 model = insert_bias_bypass(model_input=model, insert_mapping=bypass_mapping)
 
-for id in range(6):
-	if os.path.isfile("output_pt/input/input.{}.max_val.pt".format(id)):
-		max_val = -1000
-		min_val = 1000
-		torch.save(max_val,"output_pt/input/input.{}.max_val.pt".format(id))
-		torch.save(min_val,"output_pt/input/input.{}.min_val.pt".format(id))
-
 
 
 """------------------------------------quantize end-----------------------------------------"""
@@ -145,45 +138,66 @@ for i, data in enumerate(loader_train):
 tasks = ['nr','dm','nrdm_small','nrdm_big','sr']
 print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 
-#用于计算scale和zero，对于最后一个输入(id=5)，防止zero小于-128，硬件无法实现，所以扩大scale，强行令zero=-128 
-print("calibrate start")
-for id in range(5):
-	inp_max = torch.load("output_pt/input/input.{}.max_val.pt".format(id))
-	inp_min = torch.load("output_pt/input/input.{}.min_val.pt".format(id))
-	quan_max = 2 ** (QUAN_BIT - 1) - 1
-	quan_min = 0 - 2 ** (QUAN_BIT - 1)
-	quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
-	quan_zero = quan_min - round(inp_min/quan_scale)
-	print('scale:',quan_scale)
-	print('zero:',quan_zero)
-	# quan_scale = 1
-	# quan_zero = 0
-	torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id))
-	torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id))
+for id in range(6):
+	inp_hist = torch.load("output_pt/input/input.{}.hist.pt".format(id))
+	print(inp_hist)
+	for threshold in range(TGT_BINS_NUM,BINS_NUM):
+		# get P
+		reference_distribution_P = inp_hist[0:threshold]
+		outliers_count = torch.sum(inp_hist[threshold:BINS_NUM])
+		reference_distribution_P[threshold-1] += outliers_count
+		P = reference_distribution_P / torch.sum(reference_distribution_P)
+
+		# get Q
+		target_bin = TGT_BINS_NUM
+		num_per_bin = threshold / target_bin
+		quantize_distribution = np.zeros((target_bin,))
+		for i in range(target_bin):
+			start = i * num_per_bin
+			end = start + num_per_bin
+			left_upper = int(np.ceil(start))
+			if left_upper > start:
+				left_scale = left_upper - start
+				quantize_distribution[i] += left_scale * distribution[left_upper - 1]
+			right_lower = int(np.floor(end))
+			if right_lower < end:
+				right_scale = end - right_lower
+				quantize_distribution[i] += right_scale * distribution[right_lower]
+			for j in range(left_upper,right_lower):
+				quantize_distribution[i] += distribution[j]
+		# get Q
+		expand_distribution=np.zeros_like(t_distribution)
+		for i in range(target_bin):
+		    start = i * num_per_bin
+		    end = start + num_per_bin
+		    count = 0
+		    left_upper = int(np.ceil(start))
+		    left_scale = 0
+		    if left_upper > start:
+		        left_scale = left_upper - start
+		        if t_distribution[left_upper - 1] != 0:
+		            count += left_scale
+		    right_lower = int(np.floor(end))
+		    right_scale = 0
+		    if right_lower < end:
+		        right_scale = end - right_lower
+		        if t_distribution[right_lower] != 0:
+		            count += right_scale
+		    for j in range(left_upper,right_lower):
+		        if t_distribution[j] != 0:
+		            count+=1
+		    expand_value = quantize_distribution[i] / count
+		    if left_upper > start:
+		        if t_distribution[left_upper - 1] != 0:
+		            expand_distribution[left_upper - 1] += expand_value * left_scale
+		    if right_lower < end:
+		        if t_distribution[right_lower] != 0:
+		            expand_distribution[right_lower] += expand_value * right_scale
+		    for j in range(left_upper,right_lower):
+		        if t_distribution[j] != 0:
+		            expand_distribution[j] += expand_value
 
 
-# pixelshuffle输入的量化单独做
-inp_max = torch.load("output_pt/input/input.5.max_val.pt")
-inp_min = torch.load("output_pt/input/input.5.min_val.pt")
-# 最后一层的输出，我们更希望所有输出都是正值，所以将小于零的最小输出强行定为0
-# 由于硬件8bit不方便存储小于-128的数据，所以将大于零的最小输入数据强行定为0
-inp_min = 0
-quan_max = 2 ** (QUAN_BIT - 1) - 1
-quan_min = 0 - 2 ** (QUAN_BIT - 1)
-quan_scale = (inp_max - inp_min) / (quan_max - quan_min)
-quan_zero = quan_min - round(inp_min/quan_scale)
-print('scale:',quan_scale)
-print('zero:',quan_zero)
-# quan_scale = 1
-# quan_zero = 0
-torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id+1))
-torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id+1))
-
-
-# inps = torch.rand(1,1,40,40).cuda()
-# gfake = model(inps)
-print("calibrate end")
-print("bit:",QUAN_BIT)
 
 
 

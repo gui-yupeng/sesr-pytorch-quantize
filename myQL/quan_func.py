@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 
 from define import  WEIGHT_W_FLG, QUAN_BIT, WEIGHT_W_HIST_PNG, INPUT_W_HIST_PNG, \
                     OUTPUT_PE_W_FLG, OUTPUT_PE_ADD_W_FLG, INPUT_W_FLG, BIAS_W_FLG,\
-                    REQUAN_BIT, REQUAN_N_MAX, BIAS_QUAN_W_FLG, REQUAN_FACTOR_W_FLG, MFLAG
+                    REQUAN_BIT, REQUAN_N_MAX, BIAS_QUAN_W_FLG, REQUAN_FACTOR_W_FLG, \
+                    MFLAG
 
 
 def remove_suffix(string):
@@ -176,7 +177,7 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
         max_val = torch.max(tensor_input).item()
         min_val = torch.min(tensor_input).item()
 
-        #MinMax观察器
+        # MinMax观察器
         store_path = "output_pt/input/"
         if  not os.path.exists(store_path):#如果路径不存在
             os.makedirs(store_path)

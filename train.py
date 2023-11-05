@@ -48,7 +48,7 @@ model_optimizer = torch.optim.Adam(model.parameters(), lr=0.00001 )
 # Training
 model.train()
 
-state_temp_dict = torch.load(checkpointp+ qatf +'G.pth')
+# state_temp_dict = torch.load(checkpointp+ qatf +'G_raw.pth')
 model.load_state_dict(state_temp_dict)
 
 # # qat stage
@@ -81,7 +81,7 @@ for epoch in range(0, 2000):
 				tt = torch.cat([gts,gfake,inps],3).detach().cpu()[0,0,0::2,0::2]
 			else:
 				tt = torch.cat([gts, gfake], 3).detach().cpu()[0, 0, 0::2, 0::2]
-			torch.save(model.state_dict(), checkpointp+ qatf +'G.pth')
+			torch.save(model.state_dict(), checkpointp+ qatf +'G_raw.pth')
 			cv2.imwrite(str(mflag)+'temp.png',np.uint8( tt*255) )
 	print(g_loss)
 
