@@ -11,7 +11,7 @@ from models import quantize_utils_cuda as quantize
 import cv2
 import numpy as np
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 mflag = 3
 # qatf = "qat_"
 qatf = ""
@@ -48,7 +48,7 @@ model_optimizer = torch.optim.Adam(model.parameters(), lr=0.00001 )
 # Training
 model.train()
 
-# state_temp_dict = torch.load(checkpointp+ qatf +'G_raw.pth')
+state_temp_dict = torch.load(checkpointp+ qatf +'G_raw.pth')
 model.load_state_dict(state_temp_dict)
 
 # # qat stage
@@ -56,6 +56,7 @@ model.load_state_dict(state_temp_dict)
 # 	quantize.prepare(model, inplace=True, a_bits=8, w_bits=8,q_type = 0,q_level="C")
 #a_bits act // w_bits weight // q_type 0 symquant //q_level = L /C
 for epoch in range(0, 2000):
+	print(epoch)
 	g_loss = 0
 	if epoch > 10000:
 		quantize.prepare(model, inplace=True, a_bits=8, w_bits=8, q_type=0, q_level="C")

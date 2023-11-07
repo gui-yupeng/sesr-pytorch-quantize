@@ -224,6 +224,23 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
             
             quantized_tensor = torch.clamp(torch.round(tensor_input / scale + zero), min=quan_min, max=quan_max)
 
+            # 量化到id=5(pixelshuffle)前的量化域
+            # scale_res = torch.load("output_pt/input/input.{}.scale.pt".format(5))
+            # zero_res = torch.load("output_pt/input/input.{}.zero.pt".format(5))
+            # quantized_tensor_residual = torch.clamp(torch.round(tensor_input / scale_res + zero_res), min=quan_min, max=quan_max)
+            # if REQUAN_FACTOR_W_FLG :
+            #     store_path = "output_pt/requan_factor/"
+            #     if  not os.path.exists(store_path):#如果路径不存在
+            #         os.makedirs(store_path)
+            #     torch.save(requan_const_16bit,"output_pt/requan_factor/requan_0_1.pt")
+            #     torch.save(requan_const_n,"output_pt/requan_factor/n_0_1.pt")
+            # store_path = "output_pt/residual/"
+            # if  not os.path.exists(store_path):#如果路径不存在
+            #     os.makedirs(store_path)
+            # torch.save(output_shortcut,"output_pt/residual/shortcut_tensor.pt")
+            
+
+
         elif func_id == 4:
             #残差
             # residual = torch.load("output_pt/residual/shortcut_tensor.pt")
