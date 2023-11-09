@@ -256,14 +256,14 @@ class sesr(nn.Module):
         residual_features = self.residual_block(initial_features)  # Get residual features with `lblocks`
         residual_features = self.add_residual(residual_features, initial_features)  # Add init_features and residual
         output = self.conv_last(residual_features)  # Get final features from conv-last
-        input2 = input.repeat(1,4,1,1)
-        for ii in range(4):
-            input2[:,ii,:,:] = input[:,0,:,:]
-            input2[:,4+ii,:,:] = input[:,1,:,:]
-            input2[:,8+ii,:,:] = input[:,2,:,:]
-            #input2[:,0+ii*3,:,:] = input[:,0,:,:]
-            #input2[:,1+ii*3,:,:] = input[:,1,:,:]
-            #input2[:,2+ii*3,:,:] = input[:,2,:,:]
-        output = self.add_upsampled_input(output, input2)
+        # input2 = input.repeat(1,4,1,1)
+        # for ii in range(4):
+        #     input2[:,ii,:,:] = input[:,0,:,:]
+        #     input2[:,4+ii,:,:] = input[:,1,:,:]
+        #     input2[:,8+ii,:,:] = input[:,2,:,:]
+        #     #input2[:,0+ii*3,:,:] = input[:,0,:,:]
+        #     #input2[:,1+ii*3,:,:] = input[:,1,:,:]
+        #     #input2[:,2+ii*3,:,:] = input[:,2,:,:]
+        # output = self.add_upsampled_input(output, input2)
         output = self.depth_to_space(output)
         return output  

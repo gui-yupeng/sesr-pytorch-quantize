@@ -51,7 +51,7 @@ elif mflag == 6:
     traindata = TestDataset(6)
     checkpointp = './model_params/sr_x2_' + qatf
 
-model = model.cpu()
+model = model.cuda()
 loader_train = torch.utils.data.DataLoader(traindata, batch_size=1, num_workers=4,
 										   shuffle=False, pin_memory=False)
 
@@ -134,16 +134,25 @@ def rgb_to_yuv(img):# range in 0-1，out0-255
     rgb_weights = np.array([65.481, 128.553, 24.966])
     img = np.matmul(img, rgb_weights) + 16.
     return np.clip(img,0,255.)
+
 totalpsnr = 0
 totalssim = 0
 totalnum = 0
 for i, data in enumerate(loader_train):
 	inps,gts,_ = data[:]
-	inps = inps.cpu()
+	inps = inps.cuda()
 	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
 	with torch.no_grad():
 		gfake = model(inps)
 	# compute psnr and ssim
+	inp_size= inps.size()
+	inps_x2 = torch.zeros(inp_size[0],inp_size[1],inp_size[2]*2,inp_size[3]*2).cuda()
+	inps_x2[:,:,0::2,0::2] = inps[:,:,:,:]
+	inps_x2[:,:,0::2,1::2] = inps[:,:,:,:]
+	inps_x2[:,:,1::2,0::2] = inps[:,:,:,:]
+	inps_x2[:,:,1::2,1::2] = inps[:,:,:,:]
+	if mflag == 6:
+		gfake = gfake + inps_x2
 	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
 	gfake = np.clip(gfake, 0, 1)
 	if mflag == 1: #nr
@@ -159,6 +168,7 @@ for i, data in enumerate(loader_train):
 		isppsnr = compute_psnr(rgb_to_yuv(gts), rgb_to_yuv(gfake))
 	else:
 		isppsnr = compare_psnr(gts, gfake, data_range=1.0)
+		
 	if  mflag == 1 or  mflag == 5:
 		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
 	else:
@@ -207,7 +217,7 @@ torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id+1))
 torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id+1))
 
 
-# inps = torch.rand(1,1,40,40).cpu()
+# inps = torch.rand(1,1,40,40).cuda()
 # gfake = model(inps)
 print("calibrate end")
 print("bit:",QUAN_BIT)
