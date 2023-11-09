@@ -41,7 +41,7 @@ elif mflag == 2:
 elif mflag == 3:
     model = nrdm_3_sim.nr()
     traindata = TestDataset(3)
-    checkpointp = './model_params/nrdm_3_' + qatf
+    checkpointp = './model_params/nrdm_3_raw_' + qatf
 elif mflag == 4:
     model = nrdm_6.nr()
     traindata = TestDataset(4)
@@ -60,8 +60,7 @@ loader_train = torch.utils.data.DataLoader(traindata, batch_size=1, num_workers=
 model.train()
 if qatf == "qat_":
 	quantize.prepare(model, inplace=True, a_bits=8, w_bits=8, q_type=0, q_level="C")
-state_temp_dict = torch.load(checkpointp +'G_raw.pth')
-# state_temp_dict = torch.load(checkpointp +'G.pth')
+state_temp_dict = torch.load(checkpointp +'G.pth')
 model.load_state_dict(state_temp_dict)
 
 # infer

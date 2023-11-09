@@ -43,6 +43,7 @@ class sesr(nn.Module):
         initial_features = self.conv_first(input)  # Extract features from conv-first
         residual_features = self.residual_block(initial_features)  # Get residual features with `lblocks`
         residual_features = self.add_residual(residual_features, initial_features)  # Add init_features and residual
+        print(torch.max(residual_features))
         output = self.conv_last(residual_features)  # Get final features from conv-last
         # output = self.add_upsampled_input(final_features, upsampled_input)  # Add final_features and upsampled_input
 

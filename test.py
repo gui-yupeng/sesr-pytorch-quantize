@@ -36,7 +36,7 @@ elif mflag == 2:
 elif mflag == 3:
     model = nrdm_3.nr()
     traindata = TestDataset(3)
-    checkpointp = './model_params/nrdm_3_' + qatf
+    checkpointp = './model_params/nrdm_3_raw_' + qatf
 elif mflag == 4:
     model = nrdm_6.nr()
     traindata = TestDataset(4)
@@ -45,6 +45,10 @@ elif mflag == 5:
     model = sesr.sesr()
     traindata = TestDataset(5)
     checkpointp = './model_params/sr_' + qatf
+elif mflag == 6:
+    model = sesr.sesr()
+    traindata = TestDataset(6)
+    checkpointp = './model_params/sr_x2_' + qatf
 
 model = model.cuda()
 loader_train = torch.utils.data.DataLoader(traindata, batch_size=1, num_workers=4,
@@ -55,8 +59,8 @@ loader_train = torch.utils.data.DataLoader(traindata, batch_size=1, num_workers=
 model.train()
 if qatf == "qat_":
 	quantize.prepare(model, inplace=True, a_bits=8, w_bits=8, q_type=0, q_level="C")
-state_temp_dict = torch.load(checkpointp +'G_raw.pth')
-# state_temp_dict = torch.load(checkpointp +'G.pth')
+state_temp_dict = torch.load(checkpointp +'G.pth')
+
 model.load_state_dict(state_temp_dict)
 
 # infer

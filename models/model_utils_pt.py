@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-import os
 
 class CollapsibleLinearBlock(nn.Module):
     def __init__(self, in_channels, out_channels, tmp_channels, kernel_size, activation='prelu'):
