@@ -191,13 +191,11 @@ class TestDataset(Dataset):
         # linrgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         gt = img/255.0
         if self.mflag == 5: #sr_x4
-            # 只有pixelshift200需要这步
-            # linrgb = linrgb ** (1/2.2)
-            # gt = 0.299 * linrgb[:, :, 0] + 0.587 * linrgb[:, :, 1] + 0.114 * linrgb[:, :, 2]
             # 仅Y in Y out
+            inp = np.array(cv2.imread(tt.replace('GTmod12','LRbicx4') )[:,:,::-1] )/255.
             gt = (65.481 * gt[:, :, 0] + 128.553 * gt[:, :, 1] + 24.966 * gt[:, :, 2] + 16.)/255.0
             gt = np.clip(gt,0,1)
-            inp = cv2.resize(gt,(0,0),fx=1/4.,fy=1/4., interpolation=cv2.INTER_CUBIC)
+            inp = (65.481 * inp[:, :, 0] + 128.553 * inp[:, :, 1] + 24.966 * inp[:, :, 2] + 16.)/255.0
             inp = np.clip(inp,0,1)
             gt = torch.from_numpy(gt).float().unsqueeze(0)
             inp = torch.from_numpy(inp).float().unsqueeze(0)
@@ -210,7 +208,8 @@ class TestDataset(Dataset):
             # gt = (65.481 * linrgb[:, :, 0] + 128.533 * linrgb[:, :, 1] + 24.966 * linrgb[:, :, 2] + 16.)/255
             # RGB in RGB out
             gt = np.clip(gt,0,1)
-            inp = cv2.resize(gt,(0,0),fx=1/2.,fy=1/2., interpolation=cv2.INTER_CUBIC)
+            inp = np.array(cv2.imread(tt.replace('GTmod12','LRbicx2') )[:,:,::-1] )/255.
+            # inp = cv2.resize(gt,(0,0),fx=1/2.,fy=1/2., interpolation=cv2.INTER_CUBIC)
             gt = torch.from_numpy(gt).float().permute(2,0,1)
             inp = torch.from_numpy(inp).float().permute(2,0,1)
             variance = 0

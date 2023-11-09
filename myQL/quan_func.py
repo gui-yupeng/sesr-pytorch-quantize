@@ -193,7 +193,7 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
             if last_min_val > min_val :
                 torch.save(min_val,"output_pt/input/input.{}.min_val.pt".format(func_id))
                 last_min_val = min_val
-        assert max_val != min_val , "Input tensor is all equal"
+        assert max_val != min_val , "Input tensor is all equal,{}".format(func_id)
 
         inp_max = max_val
         inp_min = min_val

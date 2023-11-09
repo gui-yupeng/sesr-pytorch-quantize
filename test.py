@@ -4,6 +4,7 @@ from models import sesr
 from models import nr
 from models import nrdm_3
 from models import nrdm_6
+from models import sesr_arch
 from self_dataset import TestDataset
 import os
 from torch import nn
@@ -46,11 +47,11 @@ elif mflag == 5:
     traindata = TestDataset(5)
     checkpointp = './model_params/sr_' + qatf
 elif mflag == 6:
-    model = sesr.sesr()
+    model = sesr_arch.sesr()
     traindata = TestDataset(6)
     checkpointp = './model_params/sr_x2_' + qatf
 
-model = model.cuda()
+model = model.cpu()
 loader_train = torch.utils.data.DataLoader(traindata, batch_size=1, num_workers=4,
 										   shuffle=False, pin_memory=False)
 
@@ -59,8 +60,15 @@ loader_train = torch.utils.data.DataLoader(traindata, batch_size=1, num_workers=
 model.train()
 if qatf == "qat_":
 	quantize.prepare(model, inplace=True, a_bits=8, w_bits=8, q_type=0, q_level="C")
-state_temp_dict = torch.load(checkpointp +'G.pth')
 
+if mflag == 6:
+	state_temp_dict = torch.load('./model_params/x2sesr.pth.tar')['state_dict']
+elif mflag == 5:
+	state_temp_dict = torch.load('./model_params/x4sesr.pth')
+else:
+	state_temp_dict = torch.load(checkpointp +'G.pth')
+
+model = model.float()
 model.load_state_dict(state_temp_dict)
 
 # infer
@@ -118,12 +126,20 @@ def three2one(in_np):
 	outs[1::2, 1::2] = in_np[1::2, 1::2, 2]
 	return outs
 
+def compute_psnr(img_pred, img_true, data_range=255., eps=1e-8):
+    err = (img_pred - img_true) ** 2
+    err = np.mean(err)
+    return 10. * np.log10((data_range ** 2) / (err + eps))
+def rgb_to_yuv(img):# range in 0-1，out0-255
+    rgb_weights = np.array([65.481, 128.553, 24.966])
+    img = np.matmul(img, rgb_weights) + 16.
+    return np.clip(img,0,255.)
 totalpsnr = 0
 totalssim = 0
 totalnum = 0
 for i, data in enumerate(loader_train):
 	inps,gts,_ = data[:]
-	inps = inps.cuda()
+	inps = inps.cpu()
 	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
 	with torch.no_grad():
 		gfake = model(inps)
@@ -136,7 +152,13 @@ for i, data in enumerate(loader_train):
 	if mflag == 5:
 		gfake = gfake[:,:,0]
 		gts = gts[:,:,0]
-	isppsnr = compare_psnr(gts, gfake, data_range=1.0)
+	
+	if mflag == 5:
+		isppsnr = compute_psnr(gts*255., gfake*255.)
+	elif mflag == 6:
+		isppsnr = compute_psnr(rgb_to_yuv(gts), rgb_to_yuv(gfake))
+	else:
+		isppsnr = compare_psnr(gts, gfake, data_range=1.0)
 	if  mflag == 1 or  mflag == 5:
 		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
 	else:
@@ -147,7 +169,7 @@ for i, data in enumerate(loader_train):
 	totalnum += 1
 	# if(i==0):
 	# 	break
-tasks = ['nr','dm','nrdm_small','nrdm_big','sr']
+tasks = ['nr','dm','nrdm_small','nrdm_big','srx4','srx2']
 print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 
 #用于计算scale和zero，对于最后一个输入(id=5)，防止zero小于-128，硬件无法实现，所以扩大scale，强行令zero=-128 
@@ -185,7 +207,7 @@ torch.save(quan_scale,"output_pt/input/input.{}.scale.pt".format(id+1))
 torch.save(quan_zero,"output_pt/input/input.{}.zero.pt".format(id+1))
 
 
-# inps = torch.rand(1,1,40,40).cuda()
+# inps = torch.rand(1,1,40,40).cpu()
 # gfake = model(inps)
 print("calibrate end")
 print("bit:",QUAN_BIT)
