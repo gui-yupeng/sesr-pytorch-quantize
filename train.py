@@ -79,11 +79,12 @@ for epoch in range(0, 2000):
 
 		if epoch % 10 == 0 and i == 0:
 			if mflag < 5:
-				tt = torch.cat([gts,gfake,inps],3).detach().cpu()[0,0,0::2,0::2]
+				tt = torch.cat([gts,gfake,inps],3).detach().cpu()[0,:,0::2,0::2].numpy().transpose(1,2,0)[:,:,::-1]
 			else:
-				tt = torch.cat([gts, gfake], 3).detach().cpu()[0, 0, 0::2, 0::2]
+				tt = torch.cat([gts, gfake], 3).detach().cpu()[0, :, 0::2, 0::2].transpose(1,2,0)[:,:,::-1]
 			torch.save(model.state_dict(), checkpointp+ qatf +'G_raw.pth')
 			cv2.imwrite(str(mflag)+'temp.png',np.uint8( tt*255) )
+
 	print(g_loss)
 
 

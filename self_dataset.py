@@ -59,7 +59,7 @@ def mosaic(image):
 def random_noise_levels():
     """Generates random noise levels from a log-log linear distribution."""
     log_min_shot_noise = np.log(0.0001)
-    log_max_shot_noise = np.log(0.012)
+    log_max_shot_noise = np.log(0.012) #0.012
     log_shot_noise = torch.FloatTensor(1).uniform_(log_min_shot_noise, log_max_shot_noise)
     shot_noise = torch.exp(log_shot_noise)
 
@@ -149,9 +149,20 @@ class TrainDataset(Dataset):
 
         img_patch_=np.zeros((self.ps, self.ps, 3))
         img_patch_[0::2,0::2,0] = img_patch[0::2,0::2]
+        img_patch_[0::2,1::2,0] = img_patch[0::2,0::2]
+        img_patch_[1::2,0::2,0] = img_patch[0::2,0::2]
+        img_patch_[1::2,1::2,0] = img_patch[0::2,0::2]
+
         img_patch_[0::2,1::2,1] = img_patch[0::2,1::2]
         img_patch_[1::2,0::2,1] = img_patch[1::2,0::2]
+
+        img_patch_[0::2,0::2,1] = img_patch[0::2,1::2]
+        img_patch_[1::2,1::2,1] = img_patch[1::2,0::2]
+        
         img_patch_[1::2,1::2,2] = img_patch[1::2,1::2]
+        img_patch_[0::2,1::2,2] = img_patch[1::2,1::2]
+        img_patch_[1::2,0::2,2] = img_patch[1::2,1::2]
+        img_patch_[0::2,0::2,2] = img_patch[1::2,1::2]
 
         inp = torch.from_numpy(img_patch_.transpose(2, 0, 1).copy()).float() / (2**12-1)
         shot_noise, read_noise = random_noise_levels()
@@ -194,8 +205,8 @@ class TestDataset(Dataset):
     def __init__(self, mflag=1, houzuiming='.raw'):
         # self.proot = '/home/guiyp/Work/sesr/test/test_rggb_1024/'
         # self.proot ='/home/guiyp/Work/sesr/DataSet/div2kRAW/raw/'
-        self.proot ='/home/guiyp/Work/sesr/DataSet/set5RAW/raw/'
-        # self.proot ='/home/guiyp/Work/sesr/DataSet/set14RAW/raw/'
+        # self.proot ='/home/guiyp/Work/sesr/DataSet/set5RAW/raw/'
+        self.proot ='/home/guiyp/Work/sesr/DataSet/set14RAW/raw/'
         self.rggb = []
         self.ps = 128
         self.mflag = mflag
@@ -243,6 +254,22 @@ class TestDataset(Dataset):
         img_patch_[0::2,1::2,1] = img_patch[0::2,1::2]
         img_patch_[1::2,0::2,1] = img_patch[1::2,0::2]
         img_patch_[1::2,1::2,2] = img_patch[1::2,1::2]
+
+        # img_patch_[0::2,0::2,0] = img_patch[0::2,0::2]
+        # img_patch_[0::2,1::2,0] = img_patch[0::2,0::2]
+        # img_patch_[1::2,0::2,0] = img_patch[0::2,0::2]
+        # img_patch_[1::2,1::2,0] = img_patch[0::2,0::2]
+
+        # img_patch_[0::2,1::2,1] = img_patch[0::2,1::2]
+        # img_patch_[1::2,0::2,1] = img_patch[1::2,0::2]
+
+        # img_patch_[0::2,0::2,1] = img_patch[0::2,1::2]
+        # img_patch_[1::2,1::2,1] = img_patch[1::2,0::2]
+        
+        # img_patch_[1::2,1::2,2] = img_patch[1::2,1::2]
+        # img_patch_[0::2,1::2,2] = img_patch[1::2,1::2]
+        # img_patch_[1::2,0::2,2] = img_patch[1::2,1::2]
+        # img_patch_[0::2,0::2,2] = img_patch[1::2,1::2]
 
         inp = torch.from_numpy(img_patch_.transpose(2, 0, 1).copy()).float() / (2**12-1)
         

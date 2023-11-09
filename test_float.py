@@ -94,8 +94,8 @@ for i, data in enumerate(loader_train):
 		gfake_out = torch.from_numpy(gfake.transpose(2,0,1))
 		inps_out = inps.cpu()[0,:,:,:]
 		tt = torch.cat([gts_out,gfake_out,inps_out],2).detach().cpu()[0,:,:]
-		if i<10:
-			cv2.imwrite(str(mflag)+'_'+str(i)+'temp.png',np.uint8( tt*255) )
+		# if i<10:
+		# 	cv2.imwrite(str(mflag)+'_'+str(i)+'temp.png',np.uint8( tt*255) )
 		ispssim = compare_ssim(gts, gfake, data_range=1.0, channel_axis=2)
 	print(isppsnr)
 	totalpsnr+= isppsnr
