@@ -212,7 +212,7 @@ class sesr(nn.Module):
                  num_lblocks=3,
                  scaling_factor=2):
         super().__init__()
-        self.anchor = AnchorOp(scaling_factor)
+        # self.anchor = AnchorOp(scaling_factor)
         self.conv_first = CollapsibleLinearBlock(in_channels=in_channels, out_channels=num_channels,
                                                         tmp_channels=256, kernel_size=5, activation='relu')
 

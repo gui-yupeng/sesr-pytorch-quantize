@@ -155,6 +155,7 @@ class TestDataset(Dataset):
     def __init__(self, mflag=1):
         # self.proot ='/home/guiyp/Work/sesr/DataSet/DIV2K_valid_HR/'
         self.proot ='/home/guiyp/Work/sesr/DataSet/Set5/GTmod12/'
+        # self.proot ='/home/guiyp/Work/sesr/DataSet/Set14/GTmod12/'
         self.rggb = []
         self.ps = 128
         self.mflag = mflag

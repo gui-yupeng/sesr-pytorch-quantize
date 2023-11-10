@@ -64,7 +64,7 @@ else:
 	state_temp_dict = torch.load(checkpointp +'G.pth')
 	# print(state_temp_dict)
 model = model.float()
-model.load_state_dict(state_temp_dict)
+model.load_state_dict(state_temp_dict,strict=False)
 # print(model.state_dict())
 # print(model)
 # infer
@@ -97,6 +97,14 @@ for i, data in enumerate(loader_train):
 	with torch.no_grad():
 		gfake = model(inps)
 	# compute psnr and ssim
+	inp_size= inps.size()
+	inps_x2 = torch.zeros(inp_size[0],inp_size[1],inp_size[2]*2,inp_size[3]*2)
+	inps_x2[:,:,0::2,0::2] = inps[:,:,:,:]
+	inps_x2[:,:,0::2,1::2] = inps[:,:,:,:]
+	inps_x2[:,:,1::2,0::2] = inps[:,:,:,:]
+	inps_x2[:,:,1::2,1::2] = inps[:,:,:,:]
+	if mflag == 6:
+		gfake = gfake + inps_x2
 	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
 	gfake = np.clip(gfake, 0, 1)
 	if mflag == 1: #nr

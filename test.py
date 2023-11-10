@@ -69,7 +69,7 @@ else:
 	state_temp_dict = torch.load(checkpointp +'G.pth')
 
 model = model.float()
-model.load_state_dict(state_temp_dict)
+model.load_state_dict(state_temp_dict,strict=False)
 
 # infer
 model.collapse()
@@ -168,7 +168,7 @@ for i, data in enumerate(loader_train):
 		isppsnr = compute_psnr(rgb_to_yuv(gts), rgb_to_yuv(gfake))
 	else:
 		isppsnr = compare_psnr(gts, gfake, data_range=1.0)
-		
+
 	if  mflag == 1 or  mflag == 5:
 		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
 	else:
