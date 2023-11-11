@@ -138,6 +138,11 @@ def rgb_to_yuv(img):# range in 0-1，out0-255
 totalpsnr = 0
 totalssim = 0
 totalnum = 0
+
+store_path = "output_png_mzh"
+if  not os.path.exists(store_path):#如果路径不存在
+	os.makedirs(store_path)
+
 for i, data in enumerate(loader_train):
 	inps,gts,_ = data[:]
 	inps = inps.cuda()
@@ -145,6 +150,7 @@ for i, data in enumerate(loader_train):
 	with torch.no_grad():
 		gfake = model(inps)
 	# compute psnr and ssim
+	# 专为mflag=6
 	inp_size= inps.size()
 	inps_x2 = torch.zeros(inp_size[0],inp_size[1],inp_size[2]*2,inp_size[3]*2).cuda()
 	inps_x2[:,:,0::2,0::2] = inps[:,:,:,:]
@@ -155,6 +161,14 @@ for i, data in enumerate(loader_train):
 		gfake = gfake + inps_x2
 	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
 	gfake = np.clip(gfake, 0, 1)
+	
+	# 给孟学长导出png 0-255
+	store_png = gfake*255.0
+	img_bgr = cv2.cvtColor(store_png, cv2.COLOR_RGB2BGR)
+	img_bgr = img_bgr.astype(np.uint8)
+	cv2.imwrite(store_path+'/img{}.png'.format(i), img_bgr)
+
+
 	if mflag == 1: #nr
 		gfake = three2one(gfake)
 		gts = three2one(gts)

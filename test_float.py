@@ -19,7 +19,7 @@ from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 
-mflag = 5
+mflag = 3
 #qatf = "qat_"
 qatf = ""
 if mflag == 1:
