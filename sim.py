@@ -139,70 +139,70 @@ totalpsnr = 0
 totalssim = 0
 totalnum = 0
 
-store_path = "output_png_mzh"
-if  not os.path.exists(store_path):#如果路径不存在
-	os.makedirs(store_path)
+# store_path = "output_png_mzh"
+# if  not os.path.exists(store_path):#如果路径不存在
+# 	os.makedirs(store_path)
 
-for i, data in enumerate(loader_train):
-	inps,gts,_ = data[:]
-	inps = inps.cuda()
-	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
-	with torch.no_grad():
-		gfake = model(inps)
-	# compute psnr and ssim
-	# 专为mflag=6
-	inp_size= inps.size()
-	inps_x2 = torch.zeros(inp_size[0],inp_size[1],inp_size[2]*2,inp_size[3]*2).cuda()
-	inps_x2[:,:,0::2,0::2] = inps[:,:,:,:]
-	inps_x2[:,:,0::2,1::2] = inps[:,:,:,:]
-	inps_x2[:,:,1::2,0::2] = inps[:,:,:,:]
-	inps_x2[:,:,1::2,1::2] = inps[:,:,:,:]
-	if mflag == 6:
-		gfake = gfake + inps_x2
-	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
-	gfake = np.clip(gfake, 0, 1)
+# for i, data in enumerate(loader_train):
+# 	inps,gts = data[:]
+# 	inps = inps.cuda()
+# 	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
+# 	with torch.no_grad():
+# 		gfake = model(inps)
+# 	# compute psnr and ssim
+# 	# 专为mflag=6
+# 	inp_size= inps.size()
+# 	inps_x2 = torch.zeros(inp_size[0],inp_size[1],inp_size[2]*2,inp_size[3]*2).cuda()
+# 	inps_x2[:,:,0::2,0::2] = inps[:,:,:,:]
+# 	inps_x2[:,:,0::2,1::2] = inps[:,:,:,:]
+# 	inps_x2[:,:,1::2,0::2] = inps[:,:,:,:]
+# 	inps_x2[:,:,1::2,1::2] = inps[:,:,:,:]
+# 	if mflag == 6:
+# 		gfake = gfake + inps_x2
+# 	gfake = gfake.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)
+# 	gfake = np.clip(gfake, 0, 1)
 	
-	# 给孟学长导出png 0-255
-	store_png = gfake*255.0
-	img_bgr = cv2.cvtColor(store_png, cv2.COLOR_RGB2BGR)
-	img_bgr = img_bgr.astype(np.uint8)
-	cv2.imwrite(store_path+'/img{}.png'.format(i), img_bgr)
+# 	# 给孟学长导出png 0-255
+# 	store_png = gfake*255.0
+# 	img_bgr = cv2.cvtColor(store_png, cv2.COLOR_RGB2BGR)
+# 	img_bgr = img_bgr.astype(np.uint8)
+# 	cv2.imwrite(store_path+'/img{}.png'.format(i), img_bgr)
 
 
-	if mflag == 1: #nr
-		gfake = three2one(gfake)
-		gts = three2one(gts)
-	if mflag == 5:
-		gfake = gfake[:,:,0]
-		gts = gts[:,:,0]
+# 	if mflag == 1: #nr
+# 		gfake = three2one(gfake)
+# 		gts = three2one(gts)
+# 	if mflag == 5:
+# 		gfake = gfake[:,:,0]
+# 		gts = gts[:,:,0]
 	
-	if mflag == 5:
-		isppsnr = compute_psnr(gts*255., gfake*255.)
-	elif mflag == 6:
-		isppsnr = compute_psnr(rgb_to_yuv(gts), rgb_to_yuv(gfake))
-	else:
-		isppsnr = compare_psnr(gts, gfake, data_range=1.0)
+# 	if mflag == 5:
+# 		isppsnr = compute_psnr(gts*255., gfake*255.)
+# 	elif mflag == 6:
+# 		isppsnr = compute_psnr(rgb_to_yuv(gts), rgb_to_yuv(gfake))
+# 	else:
+# 		isppsnr = compare_psnr(gts, gfake, data_range=1.0)
 	
-	if  mflag == 1 or  mflag == 5:
-		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
-	else:
-		ispssim = compare_ssim(gts, gfake, data_range=1.0, channel_axis=2)
-	print(isppsnr)
-	totalpsnr+= isppsnr
-	totalssim += ispssim
-	totalnum += 1
-tasks = ['nr','dm','nrdm_small','nrdm_big','srx4','srx2']
-print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
+# 	if  mflag == 1 or  mflag == 5:
+# 		ispssim = compare_ssim(gts, gfake, data_range=1.0, multichannel=False)
+# 	else:
+# 		ispssim = compare_ssim(gts, gfake, data_range=1.0, channel_axis=2)
+# 	print(isppsnr)
+# 	totalpsnr+= isppsnr
+# 	totalssim += ispssim
+# 	totalnum += 1
+# tasks = ['nr','dm','nrdm_small','nrdm_big','srx4','srx2']
+# print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 
-# inps = torch.rand(1,3,240,240).cuda()
+# inps = torch.rand(1,1,60,60).cuda()
 # # print(inps)
-# torch.save(inps,"rand_DM_Input_240x240.pt")
+# torch.save(inps,"rand_SR_Input_60x60.pt")
 
-# if MFLAG == 3:
-# 	inps = torch.load("rand_DM_Input_240x240.pt")
-# elif MFLAG == 5:
-# 	inps = torch.load("rand_SR_Input_240x240.pt")
-# gfake = model(inps)
+if MFLAG == 3:
+	inps = torch.load("rand_DM_Input_60x60.pt")
+elif MFLAG == 5:
+	inps = torch.load("rand_SR_Input_80x80.pt")
+gfake = model(inps)
 
 print("SIM_mflag:",mflag)
 print("QUAN_BIT:",QUAN_BIT)

@@ -1,12 +1,12 @@
-MFLAG     =     3
-TEST_RAW_ADD_NOISE = True
+MFLAG     =     5
+TEST_RAW_ADD_NOISE = False
 
 #目前只支持4个PE
 PE          =      4
 
 QUAN_BIT    =      8
 
-BIAS_BIT            =      19           #对量化后的bias(int)和bias(int)-Xzero*sum(Wint)同时做clamp
+BIAS_BIT            =      16           #对量化后的bias(int)和bias(int)-Xzero*sum(Wint)同时做clamp
 PE_ACC_BIT          =      18
 PE_ADD_BIT          =      20
 

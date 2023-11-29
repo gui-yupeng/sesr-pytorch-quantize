@@ -139,7 +139,7 @@ totalpsnr = 0
 totalssim = 0
 totalnum = 0
 for i, data in enumerate(loader_train):
-	inps,gts,_ = data[:]
+	inps,gts = data[:]
 	inps = inps.cuda()
 	gts = gts.detach().numpy()[0, :, :, :].transpose(1, 2, 0)
 	with torch.no_grad():
