@@ -194,14 +194,14 @@ totalnum = 0
 # tasks = ['nr','dm','nrdm_small','nrdm_big','srx4','srx2']
 # print(tasks[mflag-1] + ' mean psnr is: ' ,totalpsnr/totalnum,' ssim is: ',totalssim/totalnum)
 
-# inps = torch.rand(1,1,60,60).cuda()
-# # print(inps)
-# torch.save(inps,"rand_SR_Input_60x60.pt")
+inps = torch.rand(1,3,400,400).cuda()
+# print(inps)
+torch.save(inps,"rand_DM_Input_300x300.pt")
 
 if MFLAG == 3:
-	inps = torch.load("rand_DM_Input_60x60.pt")
+	inps = torch.load("rand_DM_Input_300x300.pt")
 elif MFLAG == 5:
-	inps = torch.load("rand_SR_Input_80x80.pt")
+	inps = torch.load("rand_SR_Input_960x540.pt")
 gfake = model(inps)
 
 print("SIM_mflag:",mflag)

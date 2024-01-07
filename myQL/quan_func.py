@@ -251,7 +251,7 @@ def quantize_asymmetrical_by_tensor(tensor_input: torch.Tensor, width: int, exe_
             input_clamp = torch.clamp(torch.round(tensor_input - 2 ** (width - 1)), min=quan_min, max=quan_max)
             tensor_add = residual_clamp + input_clamp +  2 ** width
 
-            #torch.save(input_clamp,"output_pt/input/input.{}.spcial.pt".format(func_id))
+            torch.save(input_clamp,"output_pt/input/input.{}.spcial.pt".format(func_id))
 
             scale = torch.load("output_pt/input/input.{}.scale.pt".format(func_id))
             scale_1 = torch.load("output_pt/input/input.{}.scale.pt".format(1))

@@ -48,16 +48,17 @@ if target == "input":
         batch, channel, height, width = tensor_data.shape
         expanded_height = height
         expanded_width = width
-        if height % tile_width != 0:
-            expanded_height = ((height // tile_width) + 1) * tile_width
+        # if height % tile_width != 0:
+        #     expanded_height = ((height // tile_width) + 1) * tile_width
         # if width % tile_width != 0:
         #     expanded_width = ((width // tile_width) + 1) * tile_width
         # pad2
+        expanded_height = ((height // tile_width) + 1) * tile_width
         expanded_width = ((width // tile_width) + 1) * tile_width
 
         tensor_expand = torch.zeros(batch, channel, height, expanded_width)
-        tensor_expand[:, :, :, 0:width] = tensor_data[:, :, :, :]
-
+        tensor_expand[:, :, 0:height, 0:width] = tensor_data[:, :, :, :]
+        # height = height + 1
         width_block_num = int(expanded_width / tile_width)
         height_block_num = int(expanded_height / tile_width)
 
@@ -95,16 +96,16 @@ if target == "input":
                     for c_idx in range(channel):
                         f.write('{}\n'.format("{:02x}".format(int(c_idx))))
                         for h_idx in range(current_height):
-                            if is_first_width_block:
-                                for w_idx in range(32-current_width):
-                                    f.write(float_to_hex(0, QUAN_BIT))
-                                for w_idx in range(current_width):
-                                    real_hi = block_h_start + h_idx
-                                    real_wi = block_w_start + w_idx
-                                    data_item = tensor_expand[0, c_idx, real_hi, real_wi].item()
-                                    f.write(float_to_hex(data_item, QUAN_BIT))
-                                f.write('\n')
-                            else:
+                            # if is_first_width_block:
+                            #     for w_idx in range(32-current_width):
+                            #         f.write(float_to_hex(0, QUAN_BIT))
+                            #     for w_idx in range(current_width):
+                            #         real_hi = block_h_start + h_idx
+                            #         real_wi = block_w_start + w_idx
+                            #         data_item = tensor_expand[0, c_idx, real_hi, real_wi].item()
+                            #         f.write(float_to_hex(data_item, QUAN_BIT))
+                            #     f.write('\n')
+                            # else:
                                 for w_idx in range(current_width):
                                     real_hi = block_h_start + h_idx
                                     real_wi = block_w_start + w_idx
