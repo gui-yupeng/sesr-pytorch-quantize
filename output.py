@@ -1,7 +1,6 @@
 import torch
 import math
 import os
-import math
 from define import PE_ACC_BIT, PE_ADD_BIT, QUAN_BIT, REQUAN_BIT, REQUAN_N_MAX, BIAS_BIT
 
 target = "input"
