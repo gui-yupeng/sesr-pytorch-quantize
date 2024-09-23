@@ -207,7 +207,10 @@ class TestDataset(Dataset):
         # self.proot ='/home/guiyp/Work/sesr/DataSet/div2kRAW/raw/'
         # self.proot ='/home/guiyp/Work/sesr/DataSet/set5RAW/raw/'
         # self.proot ='/home/guiyp/Work/sesr/DataSet/set14RAW/raw/'
-        self.proot ='/home/guiyp/Work/UnprocessDenoising-PyTorch/output/noisy/'
+        # self.proot ='/home/share/gypmkdir/DataSet/set5RAW/raw/'
+        # self.proot ='/home/guiyp/Work/UnprocessDenoising-PyTorch/output/noisy/' #现在只支持这个，其他的没改格式
+        self.proot ='/home/share/gypmkdir/output/noisy/'
+
         self.rggb = []
         self.ps = 128
         self.mflag = mflag
